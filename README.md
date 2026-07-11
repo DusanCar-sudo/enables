@@ -40,7 +40,7 @@ through OpenAI-compatible APIs instead. Enables bridges that gap:
 ## Brand
 
 <p align="center">
-  <img src="assets/logo1.png" alt="Enables logo" width="220" />
+  <img src="assets/logo1.png" alt="Enables logo" width="450" />
 </p>
 
 ```text
