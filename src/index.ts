@@ -134,6 +134,18 @@ function providerDisplayName(cfg: any): string {
   return cfg.providerName || cfg.provider || 'Unknown provider';
 }
 
+function printBanner(): void {
+  console.log('');
+  console.log('      ' + K + '◢◤' + R + '                               ' + K + '◢◤' + R);
+  console.log('   ' + K + '╭─────────────────────────────────────────────────╮' + R);
+  console.log('   ' + K + '│' + R + '   ' + H + 'AURA' + R + '   ' + B + 'CODE' + R + '   ' + K + '│' + R);
+  console.log('   ' + K + '│' + R + '        ' + G + 'E N A B L E S' + R + '              ' + K + '│' + R);
+  console.log('   ' + K + '│' + R + '    ' + K + 'local gateway for Claude Code' + R + '     ' + K + '│' + R);
+  console.log('   ' + K + '╰─────────────────────────────────────────────────╯' + R);
+  console.log('      ' + K + '◥◣' + R + '                               ' + K + '◥◣' + R);
+  console.log('');
+}
+
 function printProxyStatus(cfg: any) {
   console.log('\n  ' + G + '\u2713  Proxy on port ' + (cfg.port || 8080) + R);
   console.log('  ' + B + 'Provider:' + R + ' ' + providerDisplayName(cfg));
@@ -164,8 +176,7 @@ async function promptApiKey(provider: ProviderDef): Promise<string> {
 
 async function configureProvider(): Promise<any> {
   while (true) {
-    console.log('\n  ' + H + '\u25c8  Enables  \u25c8' + R);
-    console.log('  ' + K + '\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500' + R);
+    printBanner();
     console.log('  ' + K + 'Make any model work with Claude Code.' + R + '\n');
 
     const groups = providerGroups();
@@ -321,10 +332,9 @@ async function main() {
   process.stdout.write(C);
 
   if (saved.targetBaseUrl && saved.targetApiKey) {
-    console.log('\n  ' + H + '\u25c8  Enables  \u25c8' + R);
-    console.log('  ' + K + '\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500' + R);
+    printBanner();
     console.log('  ' + B + providerDisplayName(saved) + R + ' ' + K + (saved.bigModel || '') + R);
-    console.log('  ' + K + '\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500' + R + '\n');
+    console.log('');
 
     const i = await menu([
       { label: '\u25b6  Start Claude Code', note: 'uses saved API key' },

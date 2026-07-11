@@ -35,6 +35,19 @@ through OpenAI-compatible APIs instead. Enables bridges that gap:
 - Custom OpenAI-compatible provider support.
 - Automatic Claude Code launch with the correct local environment.
 - Startup status showing the real provider, endpoint, and model in use.
+- Terminal banner with Aura Code branding.
+
+## Brand
+
+```text
+      ◢◤                               ◢◤
+   ╭─────────────────────────────────────────────────╮
+   │   AURA   CODE                                   │
+   │        E N A B L E S                            │
+   │    local gateway for Claude Code                │
+   ╰─────────────────────────────────────────────────╯
+      ◥◣                               ◥◣
+```
 
 ## Supported Providers
 
