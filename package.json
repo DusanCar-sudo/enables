@@ -1,0 +1,41 @@
+{
+  "name": "enables",
+  "version": "0.1.0",
+  "description": "Make Claude Code work with almost any AI provider",
+  "main": "dist/index.js",
+  "bin": {
+    "enables": "dist/index.js"
+  },
+  "author": "Lean Progress IQ and Dusan Milosevic",
+  "keywords": [
+    "claude-code",
+    "anthropic",
+    "openai-compatible",
+    "ai-proxy",
+    "llm",
+    "developer-tools",
+    "aura-code",
+    "aura-pulse"
+  ],
+  "homepage": "https://github.com/milodule3-debug/enables#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/milodule3-debug/enables.git"
+  },
+  "bugs": {
+    "url": "https://github.com/milodule3-debug/enables/issues"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "setup": "node dist/index.js --setup",
+    "dev": "npx tsx src/index.ts",
+    "global": "npm run build && npm link"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "typescript": "^5.8.3",
+    "tsx": "^4.19.4"
+  }
+}
