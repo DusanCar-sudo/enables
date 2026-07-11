@@ -8,7 +8,7 @@ export interface AnthropicRequest {
   model?: string;
   system?: string | { type: 'text'; text: string }[];
   messages: AnthropicMessage[];
-  max_tokens: number = 512; // Default max tokens
+  max_tokens?: number;
   temperature?: number;
   top_p?: number;
   tools?: AnthropicTool[];
