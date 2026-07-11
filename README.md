@@ -39,6 +39,8 @@ through OpenAI-compatible APIs instead. Enables bridges that gap:
 
 ## Brand
 
+![Enables logo](assets/enables-logo.png)
+
 ```text
       ◢◤                               ◢◤
    ╭─────────────────────────────────────────────────╮
