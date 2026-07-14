@@ -1,201 +1,99 @@
 # Enables
 
-Make Claude Code work with almost any AI provider.
+**Make Claude Code work with almost any AI provider.**
 
-Enables is a small local proxy that lets Claude Code sign in through an
-Anthropic-compatible local endpoint while routing the actual model requests to
-your chosen provider. Pick a provider, enter the API key, choose the model, and
-Enables handles the endpoint and request translation.
+Enables is a small local proxy that lets Claude Code sign in through an Anthropic-compatible local endpoint while routing the actual model requests to your chosen provider. Pick a provider, enter the API key, choose the model, and Enables handles the endpoint and request translation.
 
-Built by Lean Progress IQ and Dusan Milosevic, builder of Aura Code and Aura
-Pulse. Enables follows the same practical direction: lightweight tooling,
-direct workflows, and useful infrastructure for people who want more control
-over the models behind their coding agents.
+Built by Lean Progress IQ and Dusan Milosevic, builder of Aura Code and Aura Pulse. Enables follows the same practical direction: lightweight tooling, direct workflows, and useful infrastructure for people who want more control over the models behind their coding agents.
+
+![GitHub release](https://img.shields.io/github/v/release/DusanCar-sudo/enables)
+![License](https://img.shields.io/github/license/DusanCar-sudo/enables)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.8-blue)
+![Node](https://img.shields.io/badge/Node-22-green)
+![Dependencies](https://img.shields.io/badge/dependencies-0-success)
 
 ## Why
 
-Claude Code expects the Anthropic Messages API. Many useful models are exposed
-through OpenAI-compatible APIs instead. Enables bridges that gap:
+Claude Code expects the Anthropic Messages API. Many useful models are exposed through OpenAI-compatible APIs instead. Enables bridges that gap:
 
 - Claude Code talks to `http://localhost:8080/v1/messages`.
 - Enables translates Anthropic Messages requests to the selected provider.
 - The provider response is translated back into Claude Code's expected format.
 - You keep the Claude Code workflow while choosing the upstream model.
 
-## Current Features
-
-- Interactive provider menu.
-- Submenus for providers with multiple plans or endpoints.
-- Hidden API key prompt with environment variable fallback.
-- Saved local config in `~/.enables.json`.
-- OpenAI-compatible provider adapter.
-- Native Anthropic pass-through adapter.
-- Streaming response conversion back to Anthropic SSE format.
-- Tool-call translation between Anthropic and OpenAI-compatible formats.
-- Custom OpenAI-compatible provider support.
-- Automatic Claude Code launch with the correct local environment.
-- Startup status showing the real provider, endpoint, and model in use.
-- Terminal banner with Aura Code branding.
-
-## Brand
-
-<p align="center">
-  <img src="assets/logo1.png" alt="Enables logo" width="450" />
-</p>
-
-```text
-      ◢◤                               ◢◤
-   ╭─────────────────────────────────────────────────╮
-   │   AURA   CODE                                   │
-   │        E N A B L E S                            │
-   │    local gateway for Claude Code                │
-   ╰─────────────────────────────────────────────────╯
-      ◥◣                               ◥◣
-```
-
-## Supported Providers
-
-Enables includes presets for:
-
-- DeepSeek
-- OpenCode
-  - Zen
-  - Go
-- Xiaomi MiMo
-  - Token Plan
-  - Pay as you go
-- Zhipu GLM
-- OpenAI
-- Anthropic
-- OpenRouter
-- Groq
-- xAI
-- Google Gemini OpenAI-compatible endpoint
-- Ollama
-- Mistral AI
-- Together AI
-- Fireworks AI
-- Perplexity
-- Cerebras
-- NVIDIA NIM
-- Alibaba DashScope
-- Moonshot AI / Kimi
-- Baichuan
-- Custom OpenAI-compatible endpoint
-
-Provider presets live in [`src/providers.ts`](src/providers.ts).
-
-## Install
+## Quick Start
 
 ```bash
-npm install
-npm run build
-```
+# Install globally
+npm install -g .
 
-For local global usage during development:
-
-```bash
-npm run global
-```
-
-Then run:
-
-```bash
-enables
-```
-
-Or run directly from source:
-
-```bash
+# Or run directly
 npm run dev
+
+# Pick a provider, paste your API key, choose a model
+# Then point Claude Code at the proxy:
+ANTHROPIC_BASE_URL=http://localhost:8080 \
+ANTHROPIC_API_KEY=dummy \
+claude
 ```
 
-## Usage
+## Features
 
-Start Enables:
+- **Interactive provider menu** — pick from DeepSeek, GLM, MiMo, Ollama, OpenAI, Anthropic, and 16+ more.
+- **Submenus for multi-plan providers** — when a provider has several endpoints, you pick which one.
+- **Hidden API key prompt** with environment variable fallback (`DEEPSEEK_API_KEY`, `GLM_API_KEY`, etc).
+- **Saved local config** in `~/.enables.json` — no global state to manage.
+- **OpenAI-compatible provider adapter** — works with any Chat Completions endpoint.
+- **Native Anthropic pass-through adapter** — for Anthropic models with header-based auth.
+- **Streaming response conversion** — translates SSE between formats in real time.
+- **Tool-call translation** — converts Anthropic `tool_use` blocks to OpenAI `tool_calls` and back.
+- **Custom OpenAI-compatible providers** — point at any OpenAI-shaped endpoint.
+- **Automatic Claude Code launch** with the correct `ANTHROPIC_BASE_URL` environment variables.
+- **Startup status panel** — shows real provider, endpoint, and model in use.
+- **Token Saver session meter** — tracks request tokens, output tokens, provider cache hits, and cumulative savings.
+- **Terminal banner** with Aura Code branding.
+- **Graceful shutdown** — Ctrl+C cleanly closes the proxy.
+
+## Commands
 
 ```bash
-enables
+npm run dev      # development mode (tsx)
+npm run build    # compile to dist/
+npm run start    # run compiled version
+npm run setup    # alias for start
+npm run global   # build + npm link globally
+npm test         # run test suite
 ```
 
-Then:
+## Endpoints
 
-1. Choose a provider.
-2. Choose the plan or endpoint variant if the provider has multiple options.
-3. Enter the API key.
-4. Choose the model.
-5. Start Claude Code.
-
-When the proxy starts, Enables prints the actual upstream configuration:
-
-```text
-Proxy on port 8080
-Provider: Xiaomi MiMo / Token Plan
-Model:    mimo-v2-flash
-Endpoint: https://token-plan-sgp.xiaomimimo.com/v1
-
-Claude Code: ANTHROPIC_BASE_URL=http://localhost:8080 ANTHROPIC_API_KEY=dummy
-```
-
-Claude Code uses the local Anthropic-compatible endpoint. Enables routes the
-request to the provider and model shown in the startup status.
-
-## Environment Variables
-
-If a provider key is already available in the environment, Enables lets you
-press Enter to use it instead of pasting the key again.
-
-Examples:
-
-```bash
-export DEEPSEEK_API_KEY=sk-...
-export XIAOMI_API_KEY=tp-...
-export MIMO_PAYG_API_KEY=sk-...
-export OPENROUTER_API_KEY=sk-or-...
-export OPENAI_API_KEY=sk-proj-...
-```
+| Method | Path | Purpose |
+|--------|------|---------|
+| `POST` | `/v1/messages` | Main proxy endpoint (Anthropic → provider) |
+| `GET` | `/health` | Proxy status — provider, model |
+| `GET` | `/v1/models` | OpenAI-compatible model list |
 
 ## Architecture
 
-```text
-Claude Code
-  -> Anthropic Messages API request
-  -> Enables local proxy
-  -> Provider adapter
-  -> Upstream model provider
-  -> Enables response converter
-  -> Anthropic-compatible response back to Claude Code
-```
+- `src/index.ts` — Entry point, CLI menu flow
+- `src/server.ts` — HTTP server, proxy routing, endpoints
+- `src/cli.ts` — CLI menu, prompts, display helpers, ANSI colors
+- `src/config.ts` — Config persistence (`~/.enables.json`)
+- `src/translate.ts` — Anthropic → OpenAI request translation
+- `src/reverse.ts` — OpenAI → Anthropic streaming SSE converter
+- `src/providers.ts` — Provider catalog
+- `src/tokenSaver.ts` — Token usage tracking
 
-Main files:
+## Tech Stack
 
-- [`src/index.ts`](src/index.ts): CLI, provider setup, config, proxy server.
-- [`src/providers.ts`](src/providers.ts): provider catalog, endpoints, models.
-- [`src/translate.ts`](src/translate.ts): Anthropic to OpenAI-compatible request translation.
-- [`src/reverse.ts`](src/reverse.ts): OpenAI-compatible response to Anthropic response conversion.
+- TypeScript 5.8, Node.js 22
+- Zero runtime dependencies
+- `tsc` for build, `tsx` for dev
 
-## Development
+## License
 
-```bash
-npm install
-npm run build
-npm run dev
-```
+MIT — see [LICENSE](LICENSE).
 
-The build output is written to `dist/`.
+## Author
 
-## Notes
-
-Most non-Anthropic providers use the OpenAI-compatible adapter. Some providers
-may still differ in streaming behavior, tool-call support, model names, or
-extra headers. The `Custom OpenAI-compatible` option is available for providers
-not yet listed.
-
-## Credits
-
-Enables is built by Lean Progress IQ and Dusan Milosevic.
-
-Dusan Milosevic is also the builder of Aura Code and Aura Pulse. This project is
-part of the same product direction: practical AI tooling that helps developers
-choose their own model infrastructure without giving up the workflows they
-already use.
+Built by **Dušan Milosavljević** — see [OWNERSHIP.md](OWNERSHIP.md).
