@@ -11,6 +11,8 @@ export type SseWriter = (event: string, data: string) => void;
 export interface ReverseStats {
   inputTokens: number;
   outputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
 }
 
 /**
@@ -26,9 +28,10 @@ export async function reverseStream(
 ): Promise<ReverseStats> {
   const decoder = new TextDecoder();
   let buffer = '';
-  let stats: ReverseStats = { inputTokens: 0, outputTokens: 0 };
-let lastPromptTokens = 0;
-let lastCompletionTokens = 0;
+  let stats: ReverseStats = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 };
+  let lastPromptTokens = 0;
+  let lastCompletionTokens = 0;
+  let lastCachedTokens = 0;
 
   // State machine
   let contentIndex = 0;       // which content block are we on
@@ -100,13 +103,17 @@ let lastCompletionTokens = 0;
       // Usage-only chunk (trailing)
       if (chunk.usage) {
         if (chunk.usage.prompt_tokens !== undefined) {
-  stats.inputTokens += chunk.usage.prompt_tokens - lastPromptTokens;
-  lastPromptTokens = chunk.usage.prompt_tokens;
-}
-if (chunk.usage.completion_tokens !== undefined) {
-  stats.outputTokens += chunk.usage.completion_tokens - lastCompletionTokens;
-  lastCompletionTokens = chunk.usage.completion_tokens;
-}
+          stats.inputTokens += chunk.usage.prompt_tokens - lastPromptTokens;
+          lastPromptTokens = chunk.usage.prompt_tokens;
+        }
+        if (chunk.usage.completion_tokens !== undefined) {
+          stats.outputTokens += chunk.usage.completion_tokens - lastCompletionTokens;
+          lastCompletionTokens = chunk.usage.completion_tokens;
+        }
+        if (chunk.usage.prompt_tokens_details?.cached_tokens !== undefined) {
+          stats.cacheReadTokens += chunk.usage.prompt_tokens_details.cached_tokens - lastCachedTokens;
+          lastCachedTokens = chunk.usage.prompt_tokens_details.cached_tokens;
+        }
       }
       return;
     }
@@ -165,6 +172,7 @@ if (chunk.usage.completion_tokens !== undefined) {
 
       stats.outputTokens = chunk.usage?.completion_tokens ?? stats.outputTokens;
       stats.inputTokens = chunk.usage?.prompt_tokens ?? stats.inputTokens;
+      stats.cacheReadTokens = chunk.usage?.prompt_tokens_details?.cached_tokens ?? stats.cacheReadTokens;
 
       writeSse('message_delta', JSON.stringify({
         type: 'message_delta',

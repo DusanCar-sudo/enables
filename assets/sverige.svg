@@ -1,0 +1,19 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1024" height="1024" rx="128" fill="#07121c"/>
+  <rect x="72" y="72" width="880" height="880" rx="92" fill="#101b2a"/>
+  <rect x="112" y="112" width="800" height="800" rx="68" fill="#142235"/>
+
+  <path d="M225 320L336 431V510L225 621V553L286 492V449L225 388V320Z" fill="#ff6a5b"/>
+  <path d="M799 320L688 431V510L799 621V553L738 492V449L799 388V320Z" fill="#4fe3ee"/>
+
+  <rect x="356" y="438" width="312" height="64" rx="32" fill="#e9fbff"/>
+  <rect x="356" y="438" width="78" height="64" rx="32" fill="#ff6a5b"/>
+  <rect x="590" y="438" width="78" height="64" rx="32" fill="#4fe3ee"/>
+
+  <rect x="300" y="258" width="424" height="424" rx="64" stroke="#2d4058" stroke-width="12"/>
+  <rect x="333" y="291" width="358" height="358" rx="46" stroke="#1e3147" stroke-width="8"/>
+
+  <text x="512" y="777" text-anchor="middle" font-family="DejaVu Sans, Arial, Helvetica, sans-serif" font-size="98" font-weight="800" fill="#f4fbff">ENABLES</text>
+  <rect x="318" y="826" width="388" height="16" rx="8" fill="#ff6a5b"/>
+  <rect x="456" y="826" width="250" height="16" rx="8" fill="#4fe3ee"/>
+</svg>

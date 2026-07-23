@@ -6,7 +6,7 @@
   "bin": {
     "enables": "dist/index.js"
   },
-  "author": "Lean Progress IQ and Dusan Milosevic",
+  "author": "Lean Progress IQ and Dusan Milosavljevic",
   "keywords": [
     "claude-code",
     "anthropic",
@@ -30,12 +30,15 @@
     "start": "node dist/index.js",
     "setup": "node dist/index.js --setup",
     "dev": "npx tsx src/index.ts",
+    "test": "node --import tsx --test src/__tests__/*.test.ts",
     "global": "npm run build && npm link"
   },
-  "dependencies": {},
+  "dependencies": {
+    "ws": "^8.21.1"
+  },
   "devDependencies": {
     "@types/node": "^22.15.3",
-    "typescript": "^5.8.3",
-    "tsx": "^4.19.4"
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
   }
 }

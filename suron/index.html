@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<title>VOLT RUSH — Sur-Ron Edition</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { width:100%; height:100%; overflow:hidden; background:#0a0d12;
+    font-family:ui-monospace,'Cascadia Code','JetBrains Mono',Consolas,monospace;
+    -webkit-user-select:none; user-select:none; touch-action:none;
+    -webkit-tap-highlight-color:transparent; }
+  canvas { display:block; }
+
+  /* ============ touch controls (mobile only) ============ */
+  #touchUI { position:fixed; inset:0; z-index:15; display:none; pointer-events:none; }
+  .tbtn { position:absolute; pointer-events:auto; display:flex; align-items:center;
+    justify-content:center; border-radius:16px; font-size:30px; font-weight:800;
+    color:rgba(230,245,255,.85); background:rgba(20,34,46,.4);
+    border:1.5px solid rgba(140,190,230,.35); backdrop-filter:blur(2px); }
+  .tbtn.on { background:rgba(92,200,255,.35); border-color:rgba(160,220,255,.8); }
+  #tLeft  { left:4vw;  bottom:16vh; width:17vw; height:17vw; max-width:110px; max-height:110px; }
+  #tRight { left:23vw; bottom:16vh; width:17vw; height:17vw; max-width:110px; max-height:110px; }
+  #tGas   { right:4vw;  bottom:30vh; width:18vw; height:22vw; max-width:120px; max-height:150px; }
+  #tBrake { right:4vw;  bottom:8vh;  width:18vw; height:15vw; max-width:120px; max-height:100px; }
+  #tWheelie { right:25vw; bottom:9vh; width:13vw; height:13vw; max-width:86px; max-height:86px; font-size:13px; letter-spacing:1px; }
+  #tCam   { right:4vw; top:8vh; width:12vw; height:12vw; max-width:76px; max-height:76px; font-size:13px; }
+  #tMenu  { left:4vw; top:8vh; width:12vw; height:12vw; max-width:76px; max-height:76px; font-size:13px; }
+
+  #rotateTip { position:fixed; inset:0; z-index:60; display:none; align-items:center;
+    justify-content:center; background:#0a0d12; color:#bcd6e8; font-size:17px;
+    letter-spacing:2px; text-align:center; }
+
+  @media (max-width:820px) {
+    #speedN { font-size:38px; }
+    #speedo { right:4vw; bottom:32vh; }
+    #battWrap { left:4vw; bottom:2vh; }
+    #battBar { width:34vw; }
+    #hint { display:none; }
+    #bikeTag { left:20vw; top:2vh; }
+    #ptsWrap { right:20vw; top:2vh; } #pts { font-size:24px; }
+    .gpanel { padding:14px 14px; max-height:94vh; overflow-y:auto; }
+    .gpanel h1 { font-size:22px; }
+    #bikeCards { grid-template-columns:repeat(3,1fr); gap:7px; }
+    .bcard { padding:9px; } .bcard ul { font-size:9.5px; line-height:1.6; }
+    .bcard h3 { font-size:11px; } .bbtn { padding:7px; font-size:11px; }
+    .ctrls { display:none; }
+  }
+
+  /* ============ HUD ============ */
+  #hud { position:fixed; inset:0; pointer-events:none; z-index:10; display:none; }
+
+  #speedo { position:absolute; right:30px; bottom:24px; text-align:right;
+    color:#eaf6ff; text-shadow:0 2px 6px #000; }
+  #speedN { font-size:56px; font-weight:800; line-height:1; }
+  #speedU { font-size:14px; letter-spacing:3px; color:#8fb3c9; }
+  #wheelieTag { font-size:12px; letter-spacing:2px; color:#ffd45c; height:16px; }
+
+  #battWrap { position:absolute; left:26px; bottom:26px; color:#cfe6da; text-shadow:0 1px 2px #000; }
+  #battLabel { font-size:11px; letter-spacing:2px; margin-bottom:5px; color:#7fa896; }
+  #battBar { width:190px; height:14px; background:rgba(0,0,0,.55);
+    border:1px solid rgba(140,200,170,.35); }
+  #battBar i { display:block; height:100%; width:100%;
+    background:linear-gradient(90deg,#2fbf71,#7de89b); transition:width .2s; }
+  #battBar.low i { background:linear-gradient(90deg,#c2402a,#e86a3c); }
+  #battPct { font-size:13px; margin-top:4px; }
+
+  #ptsWrap { position:absolute; top:18px; right:26px; text-align:right;
+    color:#ffe89a; text-shadow:0 2px 4px #000; }
+  #pts { font-size:34px; font-weight:800; }
+  #ptsWrap .u { font-size:12px; letter-spacing:2px; color:#c9b268; }
+
+  #bikeTag { position:absolute; top:18px; left:26px; color:#bfe0f5; text-shadow:0 1px 3px #000; }
+  #bikeName { font-size:16px; font-weight:700; letter-spacing:2px; }
+  #objective { font-size:12px; color:#8fb3c9; margin-top:4px; letter-spacing:1px; }
+  #objBar { width:220px; height:6px; background:rgba(0,0,0,.5); margin-top:6px;
+    border:1px solid rgba(140,180,210,.3); }
+  #objBar i { display:block; height:100%; width:0%; background:#5cc8ff; transition:width .3s; }
+
+  #toasts { position:absolute; left:50%; top:34%; transform:translateX(-50%);
+    text-align:center; }
+  .toast { font-size:22px; font-weight:800; color:#ffe27a; text-shadow:0 2px 6px #000;
+    letter-spacing:2px; animation:tpop 1.4s ease-out forwards; }
+  @keyframes tpop { 0%{opacity:0; transform:translateY(14px) scale(.8)}
+    18%{opacity:1; transform:translateY(0) scale(1.06)} 30%{transform:scale(1)}
+    75%{opacity:1} 100%{opacity:0; transform:translateY(-22px)} }
+
+  #hint { position:absolute; bottom:24px; left:50%; transform:translateX(-50%);
+    font-size:11.5px; letter-spacing:2px; color:#6d8496; text-shadow:0 1px 2px #000; }
+  #crashFade { position:absolute; inset:0; background:#000; opacity:0; transition:opacity .25s; }
+  #fps { position:absolute; left:10px; top:6px; font-size:10px; color:#546878; }
+
+  /* ============ overlays ============ */
+  .overlay { position:fixed; inset:0; z-index:20; display:none;
+    align-items:center; justify-content:center; flex-direction:column;
+    background:rgba(5,10,16,.82); backdrop-filter:blur(4px); color:#dbe9f4; }
+
+  #garage { display:flex; }
+  .gpanel { width:920px; max-width:96vw; background:rgba(9,15,22,.94);
+    border:1px solid rgba(110,170,220,.25); padding:28px 34px;
+    box-shadow:0 24px 90px rgba(0,0,0,.7); }
+  .gpanel h1 { font-size:34px; letter-spacing:6px; font-weight:800; color:#eaf6ff; }
+  .gpanel h1 span { color:#ffd45c; }
+  .gpanel .sub { font-size:11.5px; letter-spacing:3px; color:#7fa0b8; margin:4px 0 18px; }
+  #gPts { color:#ffe89a; font-weight:700; }
+
+  #bikeCards { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+  .bcard { border:1px solid rgba(110,170,220,.22); background:rgba(14,22,32,.85);
+    padding:16px 16px 14px; position:relative; }
+  .bcard.sel { border-color:#ffd45c; box-shadow:0 0 0 1px #ffd45c inset; }
+  .bcard.locked { opacity:.75; }
+  .bcard h3 { font-size:15px; letter-spacing:1.5px; color:#eaf6ff; }
+  .bcard .tier { font-size:10px; letter-spacing:2px; margin-bottom:10px; }
+  .bcard .t1 { color:#9fd8a8; } .bcard .t2 { color:#ffc46a; } .bcard .t3 { color:#7ec4ff; }
+  .bcard ul { list-style:none; font-size:11.5px; color:#9db4c6; line-height:1.85; }
+  .bcard ul b { color:#d5e6f2; font-weight:600; }
+  .bbtn { pointer-events:auto; width:100%; margin-top:12px; padding:10px;
+    font:inherit; font-size:13px; font-weight:800; letter-spacing:2px; cursor:pointer;
+    border:none; color:#0a1210; background:#69c98a; transition:background .12s; }
+  .bbtn:hover { background:#8fe0ab; }
+  .bbtn.buy { background:#ffd45c; } .bbtn.buy:hover { background:#ffe089; }
+  .bbtn:disabled { background:#3a4a55; color:#7c8f9c; cursor:default; }
+
+  #tuneWrap { margin-top:16px; padding-top:12px; border-top:1px solid rgba(110,170,220,.18); }
+  #tuneWrap .tlabel { font-size:11px; letter-spacing:2px; color:#7fa0b8; margin-bottom:8px; }
+  #tuneWrap .tlabel span { color:#ffd45c; }
+  .trow { display:flex; align-items:center; gap:10px; margin:5px 0; font-size:11px;
+    letter-spacing:1px; color:#9db4c6; }
+  .trow label { width:86px; }
+  .trow input[type=range] { pointer-events:auto; flex:1; accent-color:#5cc8ff; }
+  .trow .tv { width:44px; text-align:right; color:#dbe9f4; }
+  .grow { display:flex; gap:18px; align-items:center; margin-top:20px; }
+  .bigbtn { pointer-events:auto; flex:1; padding:14px; font:inherit; font-size:16px;
+    font-weight:800; letter-spacing:4px; cursor:pointer; color:#081018;
+    background:#5cc8ff; border:none; transition:background .12s; }
+  .bigbtn:hover { background:#8ddbff; }
+  .ctrls { margin-top:18px; padding-top:14px; border-top:1px solid rgba(110,170,220,.18);
+    display:grid; grid-template-columns:repeat(3,1fr); gap:3px 20px;
+    font-size:11px; color:#7fa0b8; }
+  .ctrls b { color:#c4d8e6; font-weight:600; display:inline-block; min-width:52px; }
+  .fannote { margin-top:14px; font-size:10px; color:#54697a; letter-spacing:1px; text-align:center; }
+
+  #winscr { background:rgba(8,14,24,.9); }
+  #winscr h1 { font-size:42px; letter-spacing:6px; color:#7ec4ff; text-shadow:0 0 30px rgba(126,196,255,.5); }
+  #winscr p { margin:14px 0 26px; font-size:15px; color:#bcd6e8; letter-spacing:1px; }
+</style>
+</head>
+<body>
+
+<div id="hud">
+  <div id="crashFade"></div>
+  <div id="bikeTag">
+    <div id="bikeName">SUR-RON LIGHT BEE X</div>
+    <div id="objective"></div>
+    <div id="objBar"><i></i></div>
+  </div>
+  <div id="ptsWrap"><span id="pts">0</span> <span class="u">⚡ VOLTS</span></div>
+  <div id="speedo">
+    <div id="wheelieTag"></div>
+    <div id="speedN">0</div>
+    <div id="speedU">KM/H</div>
+  </div>
+  <div id="battWrap">
+    <div id="battLabel">BATTERY</div>
+    <div id="battBar"><i></i></div>
+    <div id="battPct">100%</div>
+  </div>
+  <div id="toasts"></div>
+  <div id="hint">ESC GARAGE — C CAMERA — HOLD RMB ORBIT — SHIFT WHEELIE — R RESET</div>
+  <div id="fps"></div>
+</div>
+
+<div id="touchUI">
+  <div class="tbtn" id="tLeft">◀</div>
+  <div class="tbtn" id="tRight">▶</div>
+  <div class="tbtn" id="tGas">▲</div>
+  <div class="tbtn" id="tBrake">▼</div>
+  <div class="tbtn" id="tWheelie">WHEELIE</div>
+  <div class="tbtn" id="tCam">CAM</div>
+  <div class="tbtn" id="tMenu">MENU</div>
+</div>
+
+<div id="rotateTip">ROTATE YOUR PHONE 🔄<br><br>VOLT RUSH plays in landscape</div>
+
+<div id="garage" class="overlay">
+  <div class="gpanel">
+    <h1>VOLT <span>RUSH</span></h1>
+    <div class="sub">SUR-RON GARAGE // RIDE THE CITY — HIT THE PARKS — EARN <span id="gPts">0</span> ⚡ — UNLOCK THE STORM BEE</div>
+    <div id="bikeCards"></div>
+    <div id="tuneWrap">
+      <div class="tlabel">WORKSHOP TUNING — <span id="tuneBike"></span></div>
+      <div class="trow"><label>POWER</label><input type="range" id="tPower" min="70" max="130" step="1"><span class="tv" id="tPowerV"></span></div>
+      <div class="trow"><label>TOP SPEED</label><input type="range" id="tTop" min="70" max="130" step="1"><span class="tv" id="tTopV"></span></div>
+      <div class="trow"><label>AGILITY</label><input type="range" id="tAgi" min="70" max="130" step="1"><span class="tv" id="tAgiV"></span></div>
+      <div class="trow"><label>JUMP</label><input type="range" id="tJump" min="70" max="130" step="1"><span class="tv" id="tJumpV"></span></div>
+    </div>
+    <div class="grow">
+      <button class="bigbtn" id="rideBtn">RIDE</button>
+    </div>
+    <div class="ctrls">
+      <div><b>W / ↑</b> throttle</div><div><b>A / D</b> lean &amp; steer</div><div><b>SHIFT</b> wheelie</div>
+      <div><b>S / ↓</b> brake</div><div><b>MOUSE</b> look — <b>HOLD RMB</b> orbit cam</div><div><b>C</b> camera view</div>
+      <div><b>SPACE</b> jump</div><div><b>R</b> reset bike</div><div><b>ESC</b> garage</div>
+    </div>
+    <div class="fannote">FAN TRIBUTE PROJECT — SUR-RON IS A TRADEMARK OF ITS OWNER. GREEN PADS RECHARGE YOUR BATTERY. GOLD ORBS AT THE PARKS ARE WORTH DOUBLE.</div>
+  </div>
+</div>
+
+<div id="winscr" class="overlay">
+  <h1>STORM BEE UNLOCKED</h1>
+  <p>22.5 kW. 110 km/h. The best electric bike in the city — and it's yours.</p>
+  <button class="bigbtn" style="width:300px" id="winBtn">RIDE IT</button>
+</div>
+
+<script src="lib/three.min.js"></script>
+<script>
+  if (typeof THREE === 'undefined') {
+    document.write('<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"><\/script>');
+  }
+  // quality preset — decided before world build
+  window.IS_MOBILE = matchMedia('(pointer:coarse)').matches || 'ontouchstart' in window;
+  window.Q = window.IS_MOBILE
+    ? { shadows: false, pxr: 1, aa: false, trees: 10, orbSeg: 0, far: 240, fog: 0.0058 }
+    : { shadows: true, pxr: 2, aa: true, trees: 26, orbSeg: 1, far: 420, fog: 0.0035 };
+</script>
+<script src="audio.js"></script>
+<script src="city.js"></script>
+<script src="bike.js"></script>
+<script src="game.js"></script>
+</body>
+</html>

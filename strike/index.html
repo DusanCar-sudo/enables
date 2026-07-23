@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DUSTLINE — Tactical FPS</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { width:100%; height:100%; overflow:hidden; background:#0b0e10;
+    font-family:ui-monospace,'Cascadia Code','JetBrains Mono',Consolas,monospace;
+    -webkit-user-select:none; user-select:none; }
+  canvas { display:block; }
+
+  /* ============ HUD ============ */
+  #hud { position:fixed; inset:0; pointer-events:none; z-index:10; display:none; }
+
+  /* crosshair */
+  #ch { position:absolute; left:50%; top:50%; width:0; height:0; --gap:6px; }
+  #ch i { position:absolute; background:#9dffab; box-shadow:0 0 2px #000, 0 0 1px #000;
+    left:0; top:0; }
+  #ch .u { width:2px; height:8px; transform:translate(-50%, calc(-100% - var(--gap))); }
+  #ch .d { width:2px; height:8px; transform:translate(-50%, var(--gap)); }
+  #ch .l { width:8px; height:2px; transform:translate(calc(-100% - var(--gap)), -50%); }
+  #ch .r { width:8px; height:2px; transform:translate(var(--gap), -50%); }
+  #ch .dot { width:2px; height:2px; transform:translate(-50%,-50%); }
+
+  /* hitmarker */
+  #hitm { position:absolute; left:50%; top:50%; width:0; height:0; opacity:0; }
+  #hitm i { position:absolute; width:2px; height:9px; background:#fff;
+    box-shadow:0 0 2px #000; }
+  #hitm i:nth-child(1){ transform:translate(-8px,-14px) rotate(45deg); }
+  #hitm i:nth-child(2){ transform:translate(6px,-14px) rotate(-45deg); }
+  #hitm i:nth-child(3){ transform:translate(-8px,5px) rotate(-45deg); }
+  #hitm i:nth-child(4){ transform:translate(6px,5px) rotate(45deg); }
+  #hitm.head i { background:#ff5b45; }
+
+  /* damage vignette */
+  #vig { position:absolute; inset:0; opacity:0;
+    background:radial-gradient(ellipse at center, transparent 42%, rgba(190,10,0,.55) 100%); }
+  #lowhp { position:absolute; inset:0; opacity:0;
+    background:radial-gradient(ellipse at center, transparent 48%, rgba(120,0,0,.5) 100%); }
+  #lowhp.on { animation:lowpulse 1.15s ease-in-out infinite; }
+  @keyframes lowpulse { 0%,100%{opacity:.25} 50%{opacity:.7} }
+
+  /* damage direction arc */
+  #dmgdir { position:absolute; left:50%; top:50%; width:110px; height:110px;
+    margin:-55px 0 0 -55px; border:4px solid transparent; border-top-color:#ff2d1a;
+    border-radius:50%; opacity:0; transform:rotate(0deg); }
+
+  /* top bar */
+  #topbar { position:absolute; top:14px; left:50%; transform:translateX(-50%);
+    display:flex; gap:18px; align-items:center; color:#cfd8c2;
+    text-shadow:0 1px 2px #000; font-size:15px; }
+  #topbar .sc { min-width:44px; text-align:center; padding:3px 10px; font-weight:700;
+    background:rgba(10,14,12,.55); border:1px solid rgba(160,190,150,.25); }
+  #scoreL { color:#8fd2ff; } #scoreR { color:#ffb35c; }
+  #timer { font-size:19px; font-weight:700; letter-spacing:1px; }
+
+  /* kill feed */
+  #feed { position:absolute; top:14px; right:16px; text-align:right; font-size:12.5px; }
+  #feed div { margin-bottom:4px; padding:3px 9px; color:#dfe7d0;
+    background:rgba(8,12,10,.6); border-right:2px solid #667; text-shadow:0 1px 1px #000;
+    transition:opacity .5s; }
+  #feed .me { border-right-color:#9dffab; }
+  #feed .them { border-right-color:#ff5b45; }
+  #feed b { color:#fff; }
+
+  /* health */
+  #hpwrap { position:absolute; left:22px; bottom:20px; display:flex; align-items:center; gap:12px; }
+  #hpnum { font-size:34px; font-weight:800; color:#e6efd8; text-shadow:0 2px 3px #000; min-width:64px; }
+  #hpbar { width:150px; height:9px; background:rgba(0,0,0,.55); border:1px solid rgba(180,200,170,.3); }
+  #hpbar i { display:block; height:100%; width:100%; background:linear-gradient(90deg,#7fbf58,#a8d977);
+    transition:width .12s; }
+  #hpbar.low i { background:linear-gradient(90deg,#b3402a,#e0603c); }
+
+  /* ammo */
+  #ammo { position:absolute; right:26px; bottom:18px; text-align:right;
+    color:#e6efd8; text-shadow:0 2px 3px #000; }
+  #wname { font-size:12px; letter-spacing:2px; color:#9fb08c; margin-bottom:2px; }
+  #mag { font-size:36px; font-weight:800; }
+  #mag.low { color:#ffb35c; } #mag.crit { color:#ff5b45; }
+  #reserve { font-size:17px; color:#93a184; margin-left:6px; }
+  #reloadTip { font-size:11px; color:#ffb35c; height:14px; letter-spacing:1px; }
+
+  #fps { position:absolute; left:10px; top:10px; font-size:11px; color:#6c7a66; text-shadow:0 1px 1px #000; }
+
+  /* scoreboard */
+  #scoreboard { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+    background:rgba(8,11,10,.88); border:1px solid rgba(160,190,150,.3); padding:18px 26px;
+    display:none; min-width:360px; }
+  #scoreboard h3 { color:#cfd8c2; font-size:13px; letter-spacing:3px; margin-bottom:10px; }
+  #scoreboard table { width:100%; border-collapse:collapse; color:#c4cdb4; font-size:13px; }
+  #scoreboard th { text-align:left; color:#7d8a72; font-size:11px; letter-spacing:2px;
+    padding:4px 10px; border-bottom:1px solid rgba(160,190,150,.2); }
+  #scoreboard td { padding:5px 10px; }
+  #scoreboard tr.you td { color:#9dffab; font-weight:700; }
+
+  /* ============ overlays ============ */
+  .overlay { position:fixed; inset:0; z-index:20; display:none;
+    align-items:center; justify-content:center; flex-direction:column;
+    background:rgba(6,9,8,.78); backdrop-filter:blur(3px); color:#d5decb; }
+
+  #menu { display:flex; }
+  .panel { width:520px; max-width:92vw; background:rgba(10,14,12,.92);
+    border:1px solid rgba(160,190,150,.28); padding:34px 40px 28px;
+    box-shadow:0 20px 80px rgba(0,0,0,.6); }
+  .panel h1 { font-size:40px; letter-spacing:8px; color:#e8f1da; font-weight:800; }
+  .panel h1 span { color:#c98f3d; }
+  .panel .sub { font-size:12px; letter-spacing:3px; color:#87957a; margin:4px 0 24px; }
+  .bigbtn { pointer-events:auto; display:block; width:100%; padding:14px; margin:8px 0;
+    font:inherit; font-size:17px; font-weight:800; letter-spacing:4px; cursor:pointer;
+    color:#0c1410; background:#9dbf7f; border:none; transition:background .12s, transform .05s; }
+  .bigbtn:hover { background:#b8d99a; }
+  .bigbtn:active { transform:scale(.985); }
+  .setrow { display:flex; align-items:center; gap:12px; margin:10px 0; font-size:12.5px;
+    color:#a9b697; letter-spacing:1px; }
+  .setrow label { width:120px; }
+  .setrow input[type=range] { pointer-events:auto; flex:1; accent-color:#9dbf7f; }
+  .setrow .val { width:44px; text-align:right; color:#d5decb; }
+  .seg { display:flex; gap:4px; flex:1; pointer-events:auto; }
+  .seg button { flex:1; padding:7px 2px; font:inherit; font-size:10.5px; letter-spacing:1px; cursor:pointer;
+    color:#a9b697; background:rgba(20,26,20,.7); border:1px solid rgba(160,190,150,.25); transition:background .1s; }
+  .seg button:hover { background:rgba(60,75,55,.7); }
+  .seg button.on { background:#9dbf7f; color:#0c1410; font-weight:700; }
+  #nameInp { pointer-events:auto; flex:1; padding:7px; font:inherit; font-size:12px; letter-spacing:1px;
+    background:rgba(20,26,20,.7); border:1px solid rgba(160,190,150,.25); color:#d5decb; outline:none; }
+  #netStatus { min-height:14px; margin-top:6px; }
+  #netStatus.err { color:#ff8a70; }
+  .ctrls { margin-top:20px; padding-top:16px; border-top:1px solid rgba(160,190,150,.18);
+    display:grid; grid-template-columns:1fr 1fr; gap:4px 24px; font-size:11.5px; color:#87957a; }
+  .ctrls b { color:#c4cdb4; font-weight:600; display:inline-block; min-width:58px; }
+  .note { margin-top:16px; font-size:11px; color:#6c7a66; letter-spacing:1px; text-align:center; }
+
+  #death { background:rgba(40,4,2,.45); }
+  #deathTxt { font-size:30px; font-weight:800; letter-spacing:5px; color:#ffd9d2; text-shadow:0 2px 8px #000; }
+  #deathSub { margin-top:12px; font-size:14px; color:#e0b7ae; letter-spacing:2px; }
+
+  #endscr h1 { font-size:44px; letter-spacing:8px; margin-bottom:10px; }
+  #endscr h1.win { color:#a8e987; } #endscr h1.lose { color:#ff8a70; }
+  #endTxt { font-size:15px; color:#b9c5a8; letter-spacing:1px; margin-bottom:26px; }
+</style>
+</head>
+<body>
+
+<div id="hud">
+  <div id="vig"></div>
+  <div id="lowhp"></div>
+  <div id="dmgdir"></div>
+  <div id="ch"><i class="u"></i><i class="d"></i><i class="l"></i><i class="r"></i><i class="dot"></i></div>
+  <div id="hitm"><i></i><i></i><i></i><i></i></div>
+  <div id="topbar">
+    <span class="sc" id="scoreL">0</span>
+    <span id="timer">10:00</span>
+    <span class="sc" id="scoreR">0</span>
+  </div>
+  <div id="feed"></div>
+  <div id="hpwrap">
+    <div id="hpnum">100</div>
+    <div id="hpbar"><i></i></div>
+  </div>
+  <div id="ammo">
+    <div id="wname">AK-47</div>
+    <div><span id="mag">30</span><span id="reserve">/ 90</span></div>
+    <div id="reloadTip"></div>
+  </div>
+  <div id="fps"></div>
+  <div id="scoreboard">
+    <h3 id="sbTitle">SECTOR — DEATHMATCH</h3>
+    <table>
+      <thead><tr><th>OPERATIVE</th><th>K</th><th>D</th></tr></thead>
+      <tbody id="sbBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<div id="menu" class="overlay">
+  <div class="panel">
+    <h1>DUST<span>LINE</span></h1>
+    <div class="sub" id="menuSub">CQB SECTOR OPS</div>
+    <button class="bigbtn" id="playBtn">DEPLOY</button>
+    <div class="setrow"><label>MAP</label><div class="seg" id="mapSeg">
+      <button data-v="dust2">DUST2</button><button data-v="mirage">MIRAGE</button><button data-v="anubis">ANUBIS</button><button data-v="dustbowl">DUSTBOWL</button>
+    </div></div>
+    <div class="setrow"><label>SIDE</label><div class="seg" id="sideSeg">
+      <button data-v="T">TERRORIST</button><button data-v="CT">POLICE</button>
+    </div></div>
+    <div class="setrow"><label>BOT SKILL</label><div class="seg" id="diffSeg">
+      <button data-v="easy">EASY</button><button data-v="medium">MEDIUM</button><button data-v="hard">HARD</button>
+    </div></div>
+    <div class="setrow"><label>MODE</label><div class="seg" id="modeSeg">
+      <button data-v="offline">OFFLINE VS BOTS</button><button data-v="online">ONLINE PVP</button>
+    </div></div>
+    <div id="onlineRows" style="display:none">
+      <div class="setrow"><label>CALLSIGN</label><input id="nameInp" maxlength="12" spellcheck="false"></div>
+      <div class="setrow"><label>SERVER</label><div class="seg" id="roomSeg">
+        <button data-v="1">GAME 1</button><button data-v="2">GAME 2</button><button data-v="3">GAME 3</button>
+      </div></div>
+      <div class="note err" id="netStatus"></div>
+    </div>
+    <div class="setrow"><label>SENSITIVITY</label><input type="range" id="sens" min="0.2" max="3" step="0.05" value="1"><span class="val" id="sensV">1.00</span></div>
+    <div class="setrow"><label>VOLUME</label><input type="range" id="vol" min="0" max="1" step="0.05" value="0.8"><span class="val" id="volV">80%</span></div>
+    <div class="setrow"><label>FIELD OF VIEW</label><input type="range" id="fovr" min="60" max="100" step="1" value="75"><span class="val" id="fovV">75</span></div>
+    <div class="ctrls">
+      <div><b>W A S D</b> move</div><div><b>MOUSE 1</b> fire</div>
+      <div><b>SHIFT</b> walk (silent)</div><div><b>MOUSE 2</b> aim</div>
+      <div><b>CTRL</b> crouch</div><div><b>R</b> reload</div>
+      <div><b>SPACE</b> jump</div><div><b>1 / 2 / 3</b> weapons</div>
+      <div><b>TAB</b> scoreboard</div><div><b>ESC</b> menu</div>
+    </div>
+    <div class="note">HEADPHONES RECOMMENDED — ALL AUDIO SYNTHESIZED LIVE</div>
+  </div>
+</div>
+
+<div id="death" class="overlay">
+  <div id="deathTxt">ELIMINATED</div>
+  <div id="deathSub"></div>
+</div>
+
+<div id="endscr" class="overlay">
+  <h1 id="endTitle">MATCH OVER</h1>
+  <div id="endTxt"></div>
+  <button class="bigbtn" id="restartBtn" style="width:280px">RE-DEPLOY</button>
+</div>
+
+<script src="lib/three.min.js"></script>
+<script>
+  if (typeof THREE === 'undefined') {
+    document.write('<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"><\/script>');
+  }
+</script>
+<script src="audio.js"></script>
+<script src="world.js"></script>
+<script src="net.js"></script>
+<script src="game.js"></script>
+</body>
+</html>

@@ -108,7 +108,7 @@ export const PROVIDERS: ProviderDef[] = [
     keyHint: 'sk-proj-... (from platform.openai.com)',
     keyEnvVar: 'OPENAI_API_KEY',
     defaultModel: 'gpt-4o',
-    models: ['gpt-4o', 'gpt-4o-mini', 'o3-mini', 'o4-mini'],
+    models: ['gpt-4o', 'gpt-4o-mini', 'o3-mini', 'o4-mini', 'gpt-5.5', 'gpt-5.5-turbo', 'gpt-5.5-lite'],
   },
   {
     id: 'anthropic',
@@ -131,7 +131,7 @@ export const PROVIDERS: ProviderDef[] = [
     keyHint: 'sk-or-... (from openrouter.ai/keys)',
     keyEnvVar: 'OPENROUTER_API_KEY',
     defaultModel: 'deepseek-chat',
-    models: ['deepseek-chat', 'gpt-4o', 'claude-sonnet-4', 'qwen-qwq-32b', 'gemini-2.0-flash'],
+    models: ['deepseek-chat', 'gpt-4o', 'claude-sonnet-4', 'qwen-qwq-32b', 'google/gemini-2.5-flash', 'gemini-2.0-flash'],
     notes: 'Access many models through one API',
   },
   {
@@ -165,8 +165,15 @@ export const PROVIDERS: ProviderDef[] = [
     keyPrompt: 'Enter your Google AI API key',
     keyHint: 'AIza... (from aistudio.google.com)',
     keyEnvVar: 'GOOGLE_API_KEY',
-    defaultModel: 'gemini-2.0-flash',
-    models: ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-2.5-pro-preview'],
+    defaultModel: 'gemini-2.5-flash',
+    models: [
+      'gemini-2.5-flash',
+      'gemini-2.5-pro',
+      'gemini-2.0-flash',
+      'gemini-2.0-flash-lite',
+      'gemini-1.5-pro',
+      'gemini-1.5-flash',
+    ],
   },
   {
     id: 'ollama',

@@ -113,11 +113,24 @@ export function translateToOpenAI(
           const content = typeof block.content === 'string'
             ? block.content
             : block.content.map(c => c.type === 'text' ? c.text : '').join('\n');
-          messages.push({
-            role: 'tool',
-            tool_call_id: block.tool_use_id,
-            content,
-          });
+          const isGoogle = targetModel.toLowerCase().includes('gemini');
+          if (isGoogle) {
+            messages.push({
+              role: 'user',
+              content: JSON.stringify({
+                functionResponse: {
+                  name: block.tool_use_id,
+                  response: { result: content }
+                }
+              })
+            });
+          } else {
+            messages.push({
+              role: 'tool',
+              tool_call_id: block.tool_use_id,
+              content,
+            });
+          }
           break;
 
         case 'image':
