@@ -58,7 +58,7 @@ You will see the interactive terminal menu:
 
 1. **Select Provider**: Choose from DeepSeek, Google Gemini, OpenAI, Ollama, OpenRouter, Groq, xAI, Xiaomi MiMo, Zhipu GLM, or a custom OpenAI-compatible endpoint.
 2. **Enter API Key**: Paste your provider API key (hidden prompt) or rely on environment variables (e.g. `DEEPSEEK_API_KEY`, `GOOGLE_API_KEY`, `OPENAI_API_KEY`).
-3. **Select Target Model**: Choose the model you want to power Claude Code (e.g., `gemini-2.5-flash`, `deepseek-chat`, `gpt-4o`, `qwen2.5-coder:32b`).
+3. **Select Target Model**: Choose the model you want to power Claude Code (e.g., `gemini-2.0-flash`, `deepseek-chat`, `gpt-4o`, `qwen2.5-coder:32b`).
 4. **Start Proxy**: Enables automatically scans for an open TCP port (starting at `8080`, falling back to `8081`, `8082`, etc. if occupied) and launches Claude Code with the local proxy configured.
 
 ---
@@ -92,7 +92,7 @@ Inside Claude Code, you can run `/model` or keep the default selection:
 
 👉 **Select `Sonnet` (default)**.
 
-> **Why?** Enables automatically advertises standard Claude model identifiers (`claude-sonnet-4-6`, `claude-opus-4-8`, `claude-3-7-sonnet-20250219`, etc.) on the `/v1/models` endpoint to satisfy Claude Code's model validation. When requests arrive at the proxy, Enables transparently translates and routes the request to your configured upstream model (e.g., Google Gemini 2.5 Flash, DeepSeek V3, GPT-4o).
+> **Why?** Enables automatically advertises standard Claude model identifiers (`claude-sonnet-4-6`, `claude-opus-4-8`, `claude-3-7-sonnet-20250219`, etc.) on the `/v1/models` endpoint to satisfy Claude Code's model validation. When requests arrive at the proxy, Enables transparently translates and routes the request to your configured upstream model (e.g., Google Gemini 2.0 Flash, DeepSeek V3, GPT-4o).
 
 ---
 
@@ -121,7 +121,7 @@ Enables includes **Token Saver**, a real-time request tracking meter that monito
 | Provider | Preset ID | Default Model | Adapter |
 |---|---|---|---|
 | **DeepSeek** | `deepseek` | `deepseek-chat` | OpenAI-compatible |
-| **Google Gemini** | `google` | `gemini-2.5-flash` | OpenAI-compatible |
+| **Google Gemini** | `google` | `gemini-2.0-flash` | OpenAI-compatible |
 | **OpenAI** | `openai` | `gpt-4o` | OpenAI-compatible |
 | **OpenRouter** | `openrouter` | `deepseek-chat` | OpenAI-compatible |
 | **Groq** | `groq` | `llama-3.3-70b-versatile` | OpenAI-compatible |

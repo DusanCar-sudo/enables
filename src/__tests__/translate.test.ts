@@ -6,6 +6,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { translateToOpenAI, mergeAssistantMessages } from '../translate.js';
 import { reverseNonStreaming } from '../reverse.js';
+import { extractAnthropicUsage } from '../tokenSaver.js';
 
 // ── translateToOpenAI ──────────────────────────────────────────────────────
 
@@ -228,5 +229,29 @@ describe('reverseNonStreaming', () => {
 
     assert.equal(result.content.length, 0);
     assert.equal(result.stop_reason, 'end_turn');
+  });
+});
+
+describe('extractAnthropicUsage', () => {
+  it('extracts usage from JSON object', () => {
+    const usage = extractAnthropicUsage({
+      usage: { input_tokens: 100, output_tokens: 50, cache_read_input_tokens: 20 },
+    });
+    assert.equal(usage.inputTokens, 100);
+    assert.equal(usage.outputTokens, 50);
+    assert.equal(usage.cacheReadTokens, 20);
+  });
+
+  it('extracts usage from SSE string body', () => {
+    const sse = [
+      'event: message_start',
+      'data: {"type":"message_start","message":{"usage":{"input_tokens":120,"output_tokens":1}}}',
+      'event: message_delta',
+      'data: {"type":"message_delta","usage":{"output_tokens":45}}',
+    ].join('\n');
+
+    const usage = extractAnthropicUsage(sse);
+    assert.equal(usage.inputTokens, 120);
+    assert.equal(usage.outputTokens, 45);
   });
 });

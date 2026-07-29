@@ -81,6 +81,27 @@ export function extractOpenAIUsage(body: any): TokenSaverUsage {
 }
 
 export function extractAnthropicUsage(body: any): TokenSaverUsage {
+  if (typeof body === 'string') {
+    let inputTokens = 0;
+    let outputTokens = 0;
+    let cacheReadTokens = 0;
+    let cacheWriteTokens = 0;
+    for (const line of body.split('\n')) {
+      if (line.startsWith('data: ')) {
+        try {
+          const parsed = JSON.parse(line.slice(6));
+          const u = parsed.usage || parsed.message?.usage;
+          if (u) {
+            if (u.input_tokens) inputTokens = Number(u.input_tokens);
+            if (u.output_tokens) outputTokens = Number(u.output_tokens);
+            if (u.cache_read_input_tokens) cacheReadTokens = Number(u.cache_read_input_tokens);
+            if (u.cache_creation_input_tokens) cacheWriteTokens = Number(u.cache_creation_input_tokens);
+          }
+        } catch {}
+      }
+    }
+    return { inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens };
+  }
   const usage = body?.usage || {};
   return {
     inputTokens: Number(usage.input_tokens || 0),
