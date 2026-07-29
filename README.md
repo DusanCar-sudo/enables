@@ -30,6 +30,12 @@ Built by **Lean Progress IQ** and **Dusan Milosavljevic**, builder of **Aura Cod
 
 ---
 
+<p align="center">
+  <img src="assets/screenshot.png" alt="Aura Enables — Claude Code proxy dashboard screenshot" width="90%" />
+</p>
+
+---
+
 ## Quickstart & User Manual
 
 ### 1. Installation
