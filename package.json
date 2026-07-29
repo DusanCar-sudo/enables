@@ -17,13 +17,13 @@
     "aura-code",
     "aura-pulse"
   ],
-  "homepage": "https://github.com/milodule3-debug/enables#readme",
+  "homepage": "https://github.com/DusanCar-sudo/enables#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/milodule3-debug/enables.git"
+    "url": "git+https://github.com/DusanCar-sudo/enables.git"
   },
   "bugs": {
-    "url": "https://github.com/milodule3-debug/enables/issues"
+    "url": "https://github.com/DusanCar-sudo/enables/issues"
   },
   "scripts": {
     "build": "tsc",

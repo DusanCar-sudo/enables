@@ -7,6 +7,6 @@ All repositories under [DusanCar-sudo](https://github.com/DusanCar-sudo) are own
 - Ko-fi: [ko-fi.com/dulemilo](https://ko-fi.com/dulemilo)
 - Location: Da Nang, Vietnam 🇻🇳
 
-Previous account: [milodule3-debug](https://github.com/milodule3-debug) — all repos there are also mine.
+Previous account: [milodule3-debug](https://github.com/milodule3-debug) — all repos there are also mine. Current account: [DusanCar-sudo](https://github.com/DusanCar-sudo).
 
 © 2026 Dušan Milosavljević
