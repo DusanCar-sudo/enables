@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aura Enables — Power Your Digital Ecosystem</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            /* ── Brand palette from enables-logo.svg ── */
+            coral:  '#ff6a5b',
+            cyan:   '#4fe3ee',
+            navy:   '#07121c',
+            'navy-mid': '#101b2a',
+            'navy-panel': '#142235',
+            'navy-border': '#2d4058',
+            'navy-border2': '#1e3147',
+            snow:   '#f4fbff',
+            /* ── Semantic aliases ── */
+            accent:  'var(--accent)',
+            'accent-dim': 'var(--accent-dim)',
+            surface: 'var(--surface)',
+            'surface-2': 'var(--surface-2)',
+            'surface-3': 'var(--surface-3)',
+            border:  'var(--border)',
+            muted:   'var(--muted)',
+            'muted-light': 'var(--muted-light)',
+            text:    'var(--text)',
+          },
+          fontFamily: {
+            display: ['"Space Grotesk"', 'sans-serif'],
+            mono:    ['"JetBrains Mono"', 'monospace'],
+            body:    ['Inter', 'system-ui', 'sans-serif'],
+          },
+        },
+      },
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    /* ═══════════════════════════════════════════════════════
+       CSS CUSTOM PROPERTIES — light / dark themes
+    ═══════════════════════════════════════════════════════ */
+    :root {
+      --accent: #ff6a5b;
+      --accent-2: #4fe3ee;
+      --accent-dim: rgba(255,106,91,0.12);
+      --accent-glow: rgba(255,106,91,0.25);
+      --surface: #07121c;
+      --surface-2: #101b2a;
+      --surface-3: #142235;
+      --border: #1e3147;
+      --border-light: #2d4058;
+      --muted: #5a6e82;
+      --muted-light: #8aa0b4;
+      --text: #f4fbff;
+      --text-dim: #b8cdd8;
+    }
+
+    [data-theme="light"] {
+      --accent: #d9442e;
+      --accent-2: #1a9eaa;
+      --accent-dim: rgba(217,68,46,0.08);
+      --accent-glow: rgba(217,68,46,0.18);
+      --surface: #f0f4f8;
+      --surface-2: #e4ecf4;
+      --surface-3: #d8e4ee;
+      --border: #c0d0dc;
+      --border-light: #a0b8c8;
+      --muted: #607080;
+      --muted-light: #8898a8;
+      --text: #07121c;
+      --text-dim: #3a5060;
+    }
+
+    /* ═══════════════════════════════════════════════════════
+       BASE
+    ═══════════════════════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--surface);
+      color: var(--text);
+      font-family: 'Inter', system-ui, sans-serif;
+      overflow-x: hidden;
+      transition: background 0.4s, color 0.4s;
+    }
+
+    /* ═══════════════════════════════════════════════════════
+       VFX TEXT CURSOR THEME
+    ═══════════════════════════════════════════════════════ */
+
+    /* Vignette */
+    .vignette {
+      position: absolute; inset: 0;
+      background: radial-gradient(circle at center, transparent 45%, rgba(0,0,0,0.82) 100%);
+      z-index: 1; pointer-events: none;
+    }
+    [data-theme="light"] .vignette {
+      background: radial-gradient(circle at center, transparent 45%, rgba(7,18,28,0.15) 100%);
+    }
+
+    /* Film grain */
+    .grain {
+      position: absolute; inset: 0;
+      opacity: 0.055; mix-blend-mode: overlay;
+      pointer-events: none; z-index: 2;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+    }
+
+    /* Chromatic aberration headline */
+    .chroma {
+      text-shadow:
+        3px 0 var(--accent-2),
+        -3px 0 var(--accent),
+        0 0 50px var(--accent-glow),
+        0 0 120px rgba(79,227,238,0.1);
+    }
+
+    /* Cursor light trail */
+    @keyframes blink { 0%,50%{opacity:1} 51%,100%{opacity:0} }
+    .cursor {
+      display: inline-block; width: 20px; height: 1.05em;
+      background: var(--accent); margin-left: 8px; vertical-align: text-bottom;
+      animation: blink 1s steps(1) infinite;
+      box-shadow: 0 0 28px var(--accent), 0 0 8px var(--accent), 60px 0 90px var(--accent-glow);
+      transition: background 0.4s, box-shadow 0.4s;
+    }
+
+    /* Directional light rays */
+    .ray { position: absolute; mix-blend-mode: screen; pointer-events: none; z-index: 1; }
+    .ray-1 { top: 22%; left: -8%; width: 55%; height: 5px; transform: rotate(-14deg);
+      background: linear-gradient(90deg, transparent, var(--accent), transparent); filter: blur(10px); }
+    .ray-2 { top: 52%; right: -8%; width: 50%; height: 4px; transform: rotate(12deg);
+      background: linear-gradient(90deg, transparent, var(--accent-2), transparent); filter: blur(8px); }
+    .ray-3 { top: 72%; left: 15%; width: 40%; height: 3px; transform: rotate(-7deg);
+      background: linear-gradient(90deg, transparent, var(--accent), transparent); filter: blur(6px); }
+    .ray-4 { top: 38%; right: 5%; width: 30%; height: 2px; transform: rotate(20deg);
+      background: linear-gradient(90deg, transparent, var(--accent-2), transparent); filter: blur(5px); }
+
+    /* Chip / mono label */
+    .chip { font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; }
+
+    /* ═══════════════════════════════════════════════════════
+       GRID BACKGROUND
+    ═══════════════════════════════════════════════════════ */
+    .grid-bg {
+      background-image:
+        linear-gradient(var(--border-light) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border-light) 1px, transparent 1px);
+      background-size: 60px 60px;
+      opacity: 0.25;
+    }
+
+    /* ═══════════════════════════════════════════════════════
+       GLOW
+    ═══════════════════════════════════════════════════════ */
+    .glow {
+      box-shadow: 0 0 20px var(--accent-glow), 0 0 60px rgba(255,106,91,0.06);
+      transition: box-shadow 0.3s;
+    }
+
+    /* ═══════════════════════════════════════════════════════
+       PULSE RING
+    ═══════════════════════════════════════════════════════ */
+    @keyframes pulse-ring {
+      0%   { transform: scale(1);   opacity: 0.6; }
+      100% { transform: scale(2.5); opacity: 0; }
+    }
+    .pulse-ring { animation: pulse-ring 2s ease-out infinite; }
+
+    /* ═══════════════════════════════════════════════════════
+       FLOAT
+    ═══════════════════════════════════════════════════════ */
+    @keyframes float {
+      0%,100% { transform: translateY(0); }
+      50%      { transform: translateY(-8px); }
+    }
+    .float { animation: float 4s ease-in-out infinite; }
+
+    /* ═══════════════════════════════════════════════════════
+       FADE-UP
+    ═══════════════════════════════════════════════════════ */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(28px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .fade-up { animation: fadeUp 0.7s ease-out both; }
+    .fade-up-d1 { animation-delay: 0.1s; }
+    .fade-up-d2 { animation-delay: 0.2s; }
+    .fade-up-d3 { animation-delay: 0.35s; }
+    .fade-up-d4 { animation-delay: 0.5s; }
+
+    /* ═══════════════════════════════════════════════════════
+       CODE BLOCK
+    ═══════════════════════════════════════════════════════ */
+    .code-block {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      line-height: 1.7;
+      overflow: hidden;
+      transition: background 0.4s, border-color 0.4s;
+    }
+    .code-header {
+      background: var(--surface-3);
+      border-bottom: 1px solid var(--border);
+      padding: 8px 14px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.4s, border-color 0.4s;
+    }
+    .dot { width: 10px; height: 10px; border-radius: 50%; }
+    .code-body { padding: 16px 20px; }
+
+    /* ═══════════════════════════════════════════════════════
+       FEATURE CARD
+    ═══════════════════════════════════════════════════════ */
+    .feature-card {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      transition: border-color 0.25s, box-shadow 0.25s, transform 0.25s, background 0.4s;
+    }
+    .feature-card:hover {
+      border-color: var(--accent);
+      box-shadow: 0 0 30px var(--accent-glow);
+      transform: translateY(-4px);
+    }
+
+    /* ═══════════════════════════════════════════════════════
+       BUTTONS
+    ═══════════════════════════════════════════════════════ */
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 14px 30px; border-radius: 8px;
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 600; font-size: 15px;
+      letter-spacing: 0.01em; cursor: pointer;
+      transition: all 0.2s;
+      text-decoration: none; border: none; outline: none;
+    }
+    .btn-primary {
+      background: var(--accent); color: #07121c;
+    }
+    .btn-primary:hover {
+      filter: brightness(1.15);
+      box-shadow: 0 0 30px var(--accent-glow), 0 0 80px rgba(255,106,91,0.1);
+      transform: translateY(-2px);
+    }
+    .btn-ghost {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border-light);
+    }
+    .btn-ghost:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      box-shadow: 0 0 16px var(--accent-glow);
+    }
+
+    /* ═══════════════════════════════════════════════════════
+       CANVAS PLACEHOLDER
+    ═══════════════════════════════════════════════════════ */
+    .canvas-placeholder {
+      background: linear-gradient(135deg, var(--surface-2) 0%, var(--surface) 50%, var(--surface-2) 100%);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      position: relative; overflow: hidden;
+      transition: background 0.4s, border-color 0.4s;
+    }
+    .canvas-placeholder::before {
+      content: '';
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(circle at 30% 40%, var(--accent-dim) 0%, transparent 60%),
+        radial-gradient(circle at 70% 60%, rgba(79,227,238,0.04) 0%, transparent 60%);
+    }
+
+    /* ═══════════════════════════════════════════════════════
+       WAVEFORM
+    ═══════════════════════════════════════════════════════ */
+    .wave-bar {
+      width: 3px; border-radius: 2px;
+      background: linear-gradient(to top, var(--accent), var(--accent-2));
+      opacity: 0.6;
+    }
+
+    /* ═══════════════════════════════════════════════════════
+       NAV
+    ═══════════════════════════════════════════════════════ */
+    nav {
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      background: var(--surface) !important;
+      border-color: var(--border) !important;
+      transition: background 0.4s, border-color 0.4s;
+    }
+
+    /* ═══════════════════════════════════════════════════════
+       SCROLLBAR
+    ═══════════════════════════════════════════════════════ */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--surface); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--border-light); }
+
+    /* ═══════════════════════════════════════════════════════
+       THEME TOGGLE BUTTON
+    ═══════════════════════════════════════════════════════ */
+    .theme-toggle {
+      width: 36px; height: 36px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .theme-toggle:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      box-shadow: 0 0 12px var(--accent-glow);
+    }
+
+    /* ═══════════════════════════════════════════════════════
+       RESPONSIVE
+    ═══════════════════════════════════════════════════════ */
+    @media (max-width: 768px) {
+      .hero-title { font-size: clamp(2.4rem, 9vw, 3.8rem) !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════════════════
+       GRID BACKGROUND — behind everything
+  ═══════════════════════════════════════════════════════ -->
+  <div class="fixed inset-0 z-0 grid-bg pointer-events-none"></div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       NAV
+  ═══════════════════════════════════════════════════════ -->
+  <nav class="fixed top-0 left-0 right-0 z-50 border-b">
+    <div class="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <svg width="28" height="28" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="1024" height="1024" rx="128" fill="#07121c"/>
+          <rect x="72" y="72" width="880" height="880" rx="92" fill="#101b2a"/>
+          <rect x="112" y="112" width="800" height="800" rx="68" fill="#142235"/>
+          <path d="M225 320L336 431V510L225 621V553L286 492V449L225 388V320Z" fill="#ff6a5b"/>
+          <path d="M799 320L688 431V510L799 621V553L738 492V449L799 388V320Z" fill="#4fe3ee"/>
+          <rect x="356" y="438" width="312" height="64" rx="32" fill="#e9fbff"/>
+          <rect x="356" y="438" width="78" height="64" rx="32" fill="#ff6a5b"/>
+          <rect x="590" y="438" width="78" height="64" rx="32" fill="#4fe3ee"/>
+          <rect x="300" y="258" width="424" height="424" rx="64" stroke="#2d4058" stroke-width="12"/>
+          <rect x="333" y="291" width="358" height="358" rx="46" stroke="#1e3147" stroke-width="8"/>
+          <text x="512" y="777" text-anchor="middle" font-family="DejaVu Sans, Arial, Helvetica, sans-serif" font-size="98" font-weight="800" fill="#f4fbff">ENABLES</text>
+          <rect x="318" y="826" width="388" height="16" rx="8" fill="#ff6a5b"/>
+          <rect x="456" y="826" width="250" height="16" rx="8" fill="#4fe3ee"/>
+        </svg>
+        <span class="font-display font-semibold text-sm tracking-tight" style="color:var(--text);">Aura Enables</span>
+      </div>
+      <div class="hidden md:flex items-center gap-8">
+        <a href="#features" class="text-sm hover:opacity-80 transition-opacity" style="color:var(--muted-light);">Features</a>
+        <a href="#architecture" class="text-sm hover:opacity-80 transition-opacity" style="color:var(--muted-light);">Architecture</a>
+        <a href="#cta" class="text-sm hover:opacity-80 transition-opacity" style="color:var(--muted-light);">Deploy</a>
+        <a href="https://github.com/milodule3-debug/enables" target="_blank" class="text-sm hover:opacity-80 transition-opacity" style="color:var(--muted-light);">GitHub</a>
+      </div>
+      <div class="flex items-center gap-3">
+        <!-- Theme toggle -->
+        <button id="theme-btn" class="theme-toggle" title="Toggle theme" aria-label="Toggle light/dark theme">
+          <svg id="icon-sun" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="display:none;">
+            <path d="M8 1a1 1 0 011 1v1a1 1 0 11-2 0V2a1 1 0 011-1zm4 0a1 1 0 011 1v1a1 1 0 11-2 0V2a1 1 0 011-1zM2.05 3.05a1 1 0 011.414 0l.707.707A1 1 0 013.464 5.05l-.707.707a1 1 0 010 1.414l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 0l-.707.707a1 1 0 01-1.414-1.414l.707-.707A1 1 0 012.05 3.05zM13 8a1 1 0 011 1v1a1 1 0 11-2 0V9a1 1 0 011-1zm-8 0a1 1 0 011 1v1a1 1 0 11-2 0V9a1 1 0 011-1zm5.95-4.95a1 1 0 011.414 0l.707.707A1 1 0 0114.464 5.05l-.707.707a1 1 0 010 1.414l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 0l-.707.707a1 1 0 01-1.414-1.414l.707-.707A1 1 0 0110.95 3.05zM8 10a2 2 0 100 4 2 2 0 000-4z"/>
+          </svg>
+          <svg id="icon-moon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M14.354 10.646a5 5 0 010-7.07l.354-.354A6 6 0 1114.354 10.646zM8 12a4 4 0 100-8 4 4 0 000 8z"/>
+          </svg>
+        </button>
+        <a href="#cta" class="btn btn-primary text-xs py-2 px-4">Initialize Core</a>
+      </div>
+    </div>
+  </nav>
+
+
+  <!-- ═══════════════════════════════════════════════════════
+       HERO  — VFX Text Cursor theme + word cycling
+  ═══════════════════════════════════════════════════════ -->
+  <section class="relative min-h-screen flex items-center justify-center overflow-hidden">
+
+    <!-- Neural network canvas -->
+    <canvas id="hero-canvas" class="absolute inset-0 z-[1] w-full h-full"></canvas>
+
+    <!-- VFX overlays -->
+    <div class="vignette"></div>
+    <div class="grain"></div>
+    <div class="ray ray-1"></div>
+    <div class="ray ray-2"></div>
+    <div class="ray ray-3"></div>
+    <div class="ray ray-4"></div>
+
+    <!-- Chip header -->
+    <header class="absolute top-10 left-6 right-6 md:left-12 md:right-12 flex items-baseline justify-between chip z-10 mono" style="color:var(--muted);opacity:0.4;">
+      <span>AURA · ENABLES</span>
+      <span>v0.1.0</span>
+      <span>LOCAL GATEWAY</span>
+    </header>
+
+    <!-- Content -->
+    <div class="relative z-10 max-w-5xl mx-auto px-6 text-center pt-16">
+
+      <!-- Badge -->
+      <div class="fade-up inline-flex items-center gap-2 px-4 py-1.5 rounded-full border z-10 mb-8"
+           style="border-color:var(--border);background:var(--surface-2);">
+        <span class="w-2 h-2 rounded-full pulse-ring" style="background:var(--accent);"></span>
+        <span class="text-xs font-mono" style="color:var(--muted-light);letter-spacing:0.05em;">PROXY · ROUTER · 3D · NETWORK</span>
+      </div>
+
+      <!-- Chromatic aberration headline — word cycling -->
+      <h1 class="fade-up fade-up-d1 hero-title font-display font-black leading-[1.04] tracking-[-0.02em] chroma"
+          style="font-size: clamp(3rem, 7.5vw, 6rem);">
+        <span id="hero-line-1">Stop wrestling</span><br/>
+        <span id="hero-line-2">API providers.</span><span class="cursor"></span>
+      </h1>
+
+      <!-- Sub-headline -->
+      <p class="fade-up fade-up-d2 mt-6 max-w-2xl mx-auto leading-relaxed font-light"
+         style="color:var(--muted-light);font-size:clamp(1rem,2vw,1.25rem);">
+        One proxy. Nine providers. Zero config hell.
+        Aura Enables translates, routes, and manages every model request — so you can focus on building.
+      </p>
+
+      <!-- CTAs -->
+      <div class="fade-up fade-up-d3 flex flex-wrap items-center justify-center gap-4 mt-10">
+        <a href="#cta" class="btn btn-primary glow text-base px-8 py-4">
+          <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+          </svg>
+          Initialize Core
+        </a>
+        <a href="https://github.com/milodule3-debug/enables" target="_blank" class="btn btn-ghost text-base px-8 py-4">
+          View Source
+        </a>
+      </div>
+
+      <!-- Stats -->
+      <div class="fade-up fade-up-d4 flex flex-wrap items-center justify-center gap-8 md:gap-14 mt-16 pt-8"
+           style="border-top:1px solid var(--border);">
+        <div class="text-center">
+          <div class="font-display font-bold text-2xl" style="color:var(--text);">9+</div>
+          <div class="text-xs mt-1 font-mono uppercase tracking-wider" style="color:var(--muted);">Providers</div>
+        </div>
+        <div class="w-px h-8 hidden sm:block" style="background:var(--border);"></div>
+        <div class="text-center">
+          <div class="font-display font-bold text-2xl" style="color:var(--text);">0 deps</div>
+          <div class="text-xs mt-1 font-mono uppercase tracking-wider" style="color:var(--muted);">Runtime</div>
+        </div>
+        <div class="w-px h-8 hidden sm:block" style="background:var(--border);"></div>
+        <div class="text-center">
+          <div class="font-display font-bold text-2xl" style="color:var(--text);">TypeScript</div>
+          <div class="text-xs mt-1 font-mono uppercase tracking-wider" style="color:var(--muted);">Native</div>
+        </div>
+        <div class="w-px h-8 hidden sm:block" style="background:var(--border);"></div>
+        <div class="text-center">
+          <div class="font-display font-bold text-2xl" style="color:var(--text);">MIT</div>
+          <div class="text-xs mt-1 font-mono uppercase tracking-wider" style="color:var(--muted);">License</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chip footer -->
+    <footer class="absolute bottom-10 left-6 right-6 md:left-12 md:right-12 flex items-baseline justify-between chip z-10 mono" style="color:var(--muted);opacity:0.3;">
+      <span>HTML · CANVAS · NEURAL</span>
+      <span>CORAL × CYAN CHROMATIC</span>
+      <span>REC ●</span>
+    </footer>
+  </section>
+
+
+  <!-- ═══════════════════════════════════════════════════════
+       FEATURES
+  ═══════════════════════════════════════════════════════ -->
+  <section id="features" class="relative py-28 px-6">
+    <div class="max-w-7xl mx-auto">
+
+      <div class="mb-16">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-8 h-px" style="background:var(--accent);"></div>
+          <span class="text-xs font-mono uppercase tracking-widest" style="color:var(--accent);">Core Modules</span>
+        </div>
+        <h2 class="font-display font-bold text-3xl md:text-4xl tracking-tight" style="color:var(--text);">
+          Three pillars.<br/>One ecosystem.
+        </h2>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+        <!-- Feature 1: API & Proxy Routing -->
+        <div class="feature-card p-6 flex flex-col">
+          <div class="flex items-center gap-3 mb-5">
+            <div class="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                 style="background:var(--accent-dim);border:1px solid var(--accent);opacity:0.6;">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M3 5h14M3 10h14M3 15h8" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round"/>
+                <circle cx="16" cy="15" r="2" fill="var(--accent)" opacity="0.5"/>
+              </svg>
+            </div>
+            <div>
+              <h3 class="font-display font-semibold text-base" style="color:var(--text);">API &amp; Proxy Routing</h3>
+              <span class="text-[10px] font-mono uppercase tracking-wider" style="color:var(--muted);">Module 01</span>
+            </div>
+          </div>
+          <p class="text-sm leading-relaxed mb-5" style="color:var(--muted-light);">
+            High-performance TypeScript backend with token management and seamless routing across 9+ providers.
+          </p>
+          <div class="code-block mt-auto">
+            <div class="code-header">
+              <div class="dot" style="background:#ff5f57;"></div>
+              <div class="dot" style="background:#febc2e;"></div>
+              <div class="dot" style="background:#28c840;"></div>
+              <span class="ml-2 text-xs" style="color:var(--muted);">providers.ts</span>
+            </div>
+            <div class="code-body">
+              <div><span style="color:#c792ea;">export</span> <span style="color:#c792ea;">const</span> <span style="color:#82aaff;">PROVIDERS</span> = [</div>
+              <div class="pl-4">{</div>
+              <div class="pl-8"><span style="color:var(--accent);">id</span>: <span style="color:#c3e88d;">'deepseek'</span>,</div>
+              <div class="pl-8"><span style="color:var(--accent);">baseURL</span>: <span style="color:#c3e88d;">'api.deepseek.com'</span>,</div>
+              <div class="pl-8"><span style="color:var(--accent);">models</span>: [<span style="color:#c3e88d;">'deepseek-chat'</span>],</div>
+              <div class="pl-4">},</div>
+              <div class="pl-4">{</div>
+              <div class="pl-8"><span style="color:var(--accent);">id</span>: <span style="color:#c3e88d;">'google'</span>,</div>
+              <div class="pl-8"><span style="color:var(--accent);">baseURL</span>: <span style="color:#c3e88d;">'generativelanguage'</span>,</div>
+              <div class="pl-8"><span style="color:var(--accent);">models</span>: [<span style="color:#c3e88d;">'gemini-2.0-flash'</span>],</div>
+              <div class="pl-4">},</div>
+              <div>];</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Feature 2: 3D Web Environments -->
+        <div class="feature-card p-6 flex flex-col">
+          <div class="flex items-center gap-3 mb-5">
+            <div class="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                 style="background:var(--accent-dim);border:1px solid var(--accent);opacity:0.6;">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M10 2L18 6V14L10 18L2 14V6L10 2Z" stroke="var(--accent)" stroke-width="1.5" fill="none"/>
+                <path d="M10 6L14 8V12L10 14L6 12V8L10 6Z" stroke="var(--accent)" stroke-width="1" opacity="0.6"/>
+                <circle cx="10" cy="10" r="1.5" fill="var(--accent)"/>
+              </svg>
+            </div>
+            <div>
+              <h3 class="font-display font-semibold text-base" style="color:var(--text);">3D Web Environments</h3>
+              <span class="text-[10px] font-mono uppercase tracking-wider" style="color:var(--muted);">Module 02</span>
+            </div>
+          </div>
+          <p class="text-sm leading-relaxed mb-5" style="color:var(--muted-light);">
+            Interactive, browser-based 3D physics and rendering using Three.js. Build immersive worlds without leaving the browser.
+          </p>
+          <div class="canvas-placeholder h-48 mt-auto flex items-center justify-center">
+            <svg width="120" height="120" viewBox="0 0 120 120" fill="none" class="float" style="animation-duration:5s;">
+              <path d="M30 35 L80 20 L80 70 L30 85 Z" stroke="var(--accent)" stroke-width="0.8" opacity="0.3"/>
+              <path d="M20 50 L70 35 L70 85 L20 100 Z" stroke="var(--accent)" stroke-width="1.2" opacity="0.8"/>
+              <line x1="30" y1="35" x2="20" y2="50" stroke="var(--accent)" stroke-width="0.8" opacity="0.5"/>
+              <line x1="80" y1="20" x2="70" y2="35" stroke="var(--accent)" stroke-width="0.8" opacity="0.5"/>
+              <line x1="80" y1="70" x2="70" y2="85" stroke="var(--accent)" stroke-width="0.8" opacity="0.5"/>
+              <line x1="30" y1="85" x2="20" y2="100" stroke="var(--accent)" stroke-width="0.8" opacity="0.5"/>
+              <circle cx="45" cy="67" r="3" fill="var(--accent)" opacity="0.6">
+                <animate attributeName="r" values="3;5;3" dur="2s" repeatCount="indefinite"/>
+                <animate attributeName="opacity" values="0.6;0.2;0.6" dur="2s" repeatCount="indefinite"/>
+              </circle>
+            </svg>
+            <div class="absolute top-3 left-3 w-4 h-4" style="border-top:1px solid var(--accent);border-left:1px solid var(--accent);opacity:0.3;"></div>
+            <div class="absolute top-3 right-3 w-4 h-4" style="border-top:1px solid var(--accent);border-right:1px solid var(--accent);opacity:0.3;"></div>
+            <div class="absolute bottom-3 left-3 w-4 h-4" style="border-bottom:1px solid var(--accent);border-left:1px solid var(--accent);opacity:0.3;"></div>
+            <div class="absolute bottom-3 right-3 w-4 h-4" style="border-bottom:1px solid var(--accent);border-right:1px solid var(--accent);opacity:0.3;"></div>
+            <div class="absolute bottom-3 left-1/2 -translate-x-1/2 text-[10px] font-mono" style="color:var(--muted);">THREE.JS · CANVAS</div>
+          </div>
+        </div>
+
+        <!-- Feature 3: Networked Logic -->
+        <div class="feature-card p-6 flex flex-col">
+          <div class="flex items-center gap-3 mb-5">
+            <div class="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                 style="background:var(--accent-dim);border:1px solid var(--accent);opacity:0.6;">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <circle cx="10" cy="4" r="2" fill="var(--accent)"/>
+                <circle cx="4" cy="14" r="2" fill="var(--accent)" opacity="0.6"/>
+                <circle cx="16" cy="14" r="2" fill="var(--accent)" opacity="0.6"/>
+                <line x1="10" y1="6" x2="5" y2="12.3" stroke="var(--accent)" stroke-width="0.8" opacity="0.4"/>
+                <line x1="10" y1="6" x2="15" y2="12.3" stroke="var(--accent)" stroke-width="0.8" opacity="0.4"/>
+                <line x1="5.9" y1="14" x2="14.1" y2="14" stroke="var(--accent)" stroke-width="0.8" opacity="0.3"/>
+              </svg>
+            </div>
+            <div>
+              <h3 class="font-display font-semibold text-base" style="color:var(--text);">Networked Logic</h3>
+              <span class="text-[10px] font-mono uppercase tracking-wider" style="color:var(--muted);">Module 03</span>
+            </div>
+          </div>
+          <p class="text-sm leading-relaxed mb-5" style="color:var(--muted-light);">
+            Real-time multiplayer synchronization and audio routing architecture. Low-latency, event-driven, built for scale.
+          </p>
+          <div class="canvas-placeholder h-48 mt-auto flex items-center justify-center relative overflow-hidden">
+            <svg width="200" height="160" viewBox="0 0 200 160" fill="none" class="absolute inset-0 w-full h-full">
+              <line x1="100" y1="30" x2="40" y2="90" stroke="var(--accent)" stroke-width="0.6" opacity="0.25"/>
+              <line x1="100" y1="30" x2="160" y2="90" stroke="var(--accent)" stroke-width="0.6" opacity="0.25"/>
+              <line x1="40" y1="90" x2="100" y2="130" stroke="var(--accent)" stroke-width="0.6" opacity="0.25"/>
+              <line x1="160" y1="90" x2="100" y2="130" stroke="var(--accent)" stroke-width="0.6" opacity="0.25"/>
+              <line x1="40" y1="90" x2="160" y2="90" stroke="var(--accent)" stroke-width="0.6" opacity="0.15"/>
+              <circle cx="100" cy="30" r="5" fill="var(--accent)" opacity="0.9">
+                <animate attributeName="r" values="5;7;5" dur="2s" repeatCount="indefinite"/>
+                <animate attributeName="opacity" values="0.9;0.5;0.9" dur="2s" repeatCount="indefinite"/>
+              </circle>
+              <circle cx="40" cy="90" r="4" fill="var(--accent)" opacity="0.6"/>
+              <circle cx="160" cy="90" r="4" fill="var(--accent)" opacity="0.6"/>
+              <circle cx="100" cy="130" r="4" fill="var(--accent)" opacity="0.6"/>
+              <circle r="2" fill="var(--accent)" opacity="0.8">
+                <animateMotion dur="3s" repeatCount="indefinite" path="M100,30 L40,90 L100,130 L160,90 L100,30"/>
+              </circle>
+            </svg>
+            <div class="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-end gap-[3px] h-8">
+              <div class="wave-bar" style="height:40%;animation:float 1.2s ease-in-out infinite;"></div>
+              <div class="wave-bar" style="height:70%;animation:float 1.4s ease-in-out infinite 0.1s;"></div>
+              <div class="wave-bar" style="height:100%;animation:float 1.1s ease-in-out infinite 0.2s;"></div>
+              <div class="wave-bar" style="height:55%;animation:float 1.3s ease-in-out infinite 0.3s;"></div>
+              <div class="wave-bar" style="height:85%;animation:float 1.5s ease-in-out infinite 0.15s;"></div>
+              <div class="wave-bar" style="height:45%;animation:float 1.2s ease-in-out infinite 0.25s;"></div>
+              <div class="wave-bar" style="height:90%;animation:float 1.4s ease-in-out infinite 0.05s;"></div>
+              <div class="wave-bar" style="height:60%;animation:float 1.1s ease-in-out infinite 0.35s;"></div>
+              <div class="wave-bar" style="height:75%;animation:float 1.3s ease-in-out infinite 0.2s;"></div>
+              <div class="wave-bar" style="height:35%;animation:float 1.5s ease-in-out infinite 0.1s;"></div>
+            </div>
+            <div class="absolute bottom-3 left-1/2 -translate-x-1/2 text-[10px] font-mono" style="color:var(--muted);">WEBSOCKET · AUDIO ROUTER</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ═══════════════════════════════════════════════════════
+       ARCHITECTURE
+  ═══════════════════════════════════════════════════════ -->
+  <section id="architecture" class="relative py-28 px-6" style="border-top:1px solid var(--border);">
+    <div class="max-w-5xl mx-auto">
+
+      <div class="mb-16">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-8 h-px" style="background:var(--accent);"></div>
+          <span class="text-xs font-mono uppercase tracking-widest" style="color:var(--accent);">Architecture</span>
+        </div>
+        <h2 class="font-display font-bold text-3xl md:text-4xl tracking-tight" style="color:var(--text);">
+          How it works.
+        </h2>
+      </div>
+
+      <div class="flex flex-col md:flex-row items-center justify-between gap-4 md:gap-0">
+
+        <div class="flex-1 text-center px-4">
+          <div class="w-14 h-14 rounded-xl mx-auto flex items-center justify-center mb-4"
+               style="background:var(--surface-3);border:1px solid var(--border);">
+            <span class="font-display font-bold text-lg" style="color:var(--accent);">01</span>
+          </div>
+          <h4 class="font-display font-semibold text-sm mb-2" style="color:var(--text);">Configure</h4>
+          <p class="text-xs leading-relaxed" style="color:var(--muted);">Select your provider, paste your API key, choose a target model.</p>
+        </div>
+
+        <div class="hidden md:flex items-center flex-shrink-0" style="color:var(--border);">
+          <svg width="40" height="12" viewBox="0 0 40 12" fill="none">
+            <line x1="0" y1="6" x2="32" y2="6" stroke="currentColor" stroke-width="1"/>
+            <path d="M32 6L26 2M32 6L26 10" stroke="currentColor" stroke-width="1"/>
+          </svg>
+        </div>
+        <div class="md:hidden flex flex-col items-center" style="color:var(--border);">
+          <svg width="12" height="24" viewBox="0 0 12 24" fill="none">
+            <line x1="6" y1="0" x2="6" y2="18" stroke="currentColor" stroke-width="1"/>
+            <path d="M6 18L2 12M6 18L10 12" stroke="currentColor" stroke-width="1"/>
+          </svg>
+        </div>
+
+        <div class="flex-1 text-center px-4">
+          <div class="w-14 h-14 rounded-xl mx-auto flex items-center justify-center mb-4"
+               style="background:var(--surface-3);border:1px solid var(--border);">
+            <span class="font-display font-bold text-lg" style="color:var(--accent);">02</span>
+          </div>
+          <h4 class="font-display font-semibold text-sm mb-2" style="color:var(--text);">Route</h4>
+          <p class="text-xs leading-relaxed" style="color:var(--muted);">Enables spins up a local Anthropic-compatible proxy on a free port automatically.</p>
+        </div>
+
+        <div class="hidden md:flex items-center flex-shrink-0" style="color:var(--border);">
+          <svg width="40" height="12" viewBox="0 0 40 12" fill="none">
+            <line x1="0" y1="6" x2="32" y2="6" stroke="currentColor" stroke-width="1"/>
+            <path d="M32 6L26 2M32 6L26 10" stroke="currentColor" stroke-width="1"/>
+          </svg>
+        </div>
+        <div class="md:hidden flex flex-col items-center" style="color:var(--border);">
+          <svg width="12" height="24" viewBox="0 0 12 24" fill="none">
+            <line x1="6" y1="0" x2="6" y2="18" stroke="currentColor" stroke-width="1"/>
+            <path d="M6 18L2 12M6 18L10 12" stroke="currentColor" stroke-width="1"/>
+          </svg>
+        </div>
+
+        <div class="flex-1 text-center px-4">
+          <div class="w-14 h-14 rounded-xl mx-auto flex items-center justify-center mb-4"
+               style="background:var(--surface-3);border:1px solid var(--border);">
+            <span class="font-display font-bold text-lg" style="color:var(--accent);">03</span>
+          </div>
+          <h4 class="font-display font-semibold text-sm mb-2" style="color:var(--text);">Build</h4>
+          <p class="text-xs leading-relaxed" style="color:var(--muted);">Claude Code connects through the proxy. Requests are translated and routed transparently.</p>
+        </div>
+
+      </div>
+
+      <div class="mt-16 code-block max-w-2xl mx-auto">
+        <div class="code-header">
+          <div class="dot" style="background:#ff5f57;"></div>
+          <div class="dot" style="background:#febc2e;"></div>
+          <div class="dot" style="background:#28c840;"></div>
+          <span class="ml-2 text-xs" style="color:var(--muted);">terminal</span>
+        </div>
+        <div class="code-body" style="color:var(--muted-light);">
+          <div><span style="color:var(--accent);">$</span> enables</div>
+          <div class="mt-1" style="color:var(--muted);">? Select provider: <span style="color:var(--text);">DeepSeek</span></div>
+          <div style="color:var(--muted);">? Enter API key: <span style="color:var(--muted);">••••••••••••</span></div>
+          <div style="color:var(--muted);">? Target model: <span style="color:var(--text);">deepseek-chat</span></div>
+          <div style="color:var(--muted);">? Start proxy? <span style="color:var(--accent);">Yes</span></div>
+          <div class="mt-2" style="color:var(--accent);">→ Scanning for free port… 8080 available.</div>
+          <div style="color:var(--accent);">→ Proxy running at http://localhost:8080</div>
+          <div style="color:var(--accent);">→ Launching Claude Code…</div>
+          <div class="mt-1"><span style="color:var(--accent);">$</span> <span class="cursor">▋</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ═══════════════════════════════════════════════════════
+       FINAL CTA
+  ═══════════════════════════════════════════════════════ -->
+  <section id="cta" class="relative py-32 px-6 overflow-hidden">
+    <div class="absolute inset-0" style="background: radial-gradient(ellipse 80% 70% at 50% 80%, var(--accent-glow) 0%, transparent 70%);"></div>
+    <div class="absolute inset-0" style="border-top:1px solid var(--border);border-bottom:1px solid var(--border);"></div>
+
+    <div class="relative max-w-3xl mx-auto text-center">
+
+      <div class="flex items-center justify-center gap-3 mb-6">
+        <div class="w-6 h-px" style="background:var(--accent);"></div>
+        <span class="text-xs font-mono uppercase tracking-widest" style="color:var(--accent);">Get Started</span>
+        <div class="w-6 h-px" style="background:var(--accent);"></div>
+      </div>
+
+      <h2 class="font-display font-bold text-3xl md:text-5xl tracking-tight mb-5" style="color:var(--text);">
+        Ready to build faster?
+      </h2>
+
+      <p class="max-w-lg mx-auto mb-10 leading-relaxed"
+         style="color:var(--muted-light);font-size:clamp(1rem,2vw,1.125rem);">
+        Clone the repo, run <code class="font-mono text-sm px-2 py-0.5 rounded border" style="color:var(--accent);background:var(--surface-3);border-color:var(--border);">npm run build</code>, and point Claude Code at your local proxy. Zero config required.
+      </p>
+
+      <div class="flex flex-wrap items-center justify-center gap-4">
+        <a href="https://github.com/milodule3-debug/enables" target="_blank"
+           class="btn btn-primary glow text-base px-8 py-4">
+          <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+          </svg>
+          Deploy Now
+        </a>
+        <a href="https://github.com/milodule3-debug/enables#readme" target="_blank" class="btn btn-ghost text-base px-8 py-4">
+          Read the Docs
+        </a>
+      </div>
+
+      <div class="mt-12 code-block max-w-lg mx-auto text-left">
+        <div class="code-header">
+          <div class="dot" style="background:#ff5f57;"></div>
+          <div class="dot" style="background:#febc2e;"></div>
+          <div class="dot" style="background:#28c840;"></div>
+          <span class="ml-2 text-xs" style="color:var(--muted);">bash</span>
+        </div>
+        <div class="code-body flex items-center justify-between">
+          <code style="color:var(--accent);font-size:0.875rem;">git clone https://github.com/milodule3-debug/enables &amp;&amp; cd enables &amp;&amp; npm install &amp;&amp; npm run build</code>
+          <button onclick="navigator.clipboard.writeText('git clone https://github.com/milodule3-debug/enables && cd enables && npm install && npm run build')"
+                  class="ml-4 flex-shrink-0 transition-colors" style="color:var(--muted);" title="Copy">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="5" y="5" width="9" height="9" rx="1"/>
+              <path d="M3 11V3h8"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+
+  <!-- ═══════════════════════════════════════════════════════
+       FOOTER
+  ═══════════════════════════════════════════════════════ -->
+  <footer class="py-10 px-6" style="border-top:1px solid var(--border);">
+    <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-2">
+        <svg width="20" height="20" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="1024" height="1024" rx="128" fill="#07121c"/>
+          <rect x="72" y="72" width="880" height="880" rx="92" fill="#101b2a"/>
+          <rect x="112" y="112" width="800" height="800" rx="68" fill="#142235"/>
+          <path d="M225 320L336 431V510L225 621V553L286 492V449L225 388V320Z" fill="#ff6a5b"/>
+          <path d="M799 320L688 431V510L799 621V553L738 492V449L799 388V320Z" fill="#4fe3ee"/>
+          <rect x="356" y="438" width="312" height="64" rx="32" fill="#e9fbff"/>
+          <rect x="356" y="438" width="78" height="64" rx="32" fill="#ff6a5b"/>
+          <rect x="590" y="438" width="78" height="64" rx="32" fill="#4fe3ee"/>
+          <rect x="300" y="258" width="424" height="424" rx="64" stroke="#2d4058" stroke-width="12"/>
+          <rect x="333" y="291" width="358" height="358" rx="46" stroke="#1e3147" stroke-width="8"/>
+          <text x="512" y="777" text-anchor="middle" font-family="DejaVu Sans, Arial, Helvetica, sans-serif" font-size="98" font-weight="800" fill="#f4fbff">ENABLES</text>
+          <rect x="318" y="826" width="388" height="16" rx="8" fill="#ff6a5b"/>
+          <rect x="456" y="826" width="250" height="16" rx="8" fill="#4fe3ee"/>
+        </svg>
+        <span class="font-display text-xs" style="color:var(--muted);">Aura Enables</span>
+      </div>
+      <div class="flex items-center gap-6">
+        <a href="https://github.com/milodule3-debug/enables" target="_blank" class="text-xs transition-colors hover:opacity-80" style="color:var(--muted);">GitHub</a>
+        <a href="https://github.com/milodule3-debug/enables/blob/main/LICENSE" target="_blank" class="text-xs transition-colors hover:opacity-80" style="color:var(--muted);">MIT License</a>
+        <span class="text-xs" style="color:var(--muted);">Built by <span style="color:var(--muted-light);">Lean Progress IQ</span> &amp; <span style="color:var(--muted-light);">Dušan Milosavljević</span></span>
+      </div>
+    </div>
+  </footer>
+
+
+  <!-- ═══════════════════════════════════════════════════════
+       WORD CYCLING — hyperframes-style phrase rotation
+  ═══════════════════════════════════════════════════════ -->
+  <script>
+    (() => {
+      const phrases = [
+        'Works on all providers.',
+        'Claude Code runs with no stop.',
+        'One proxy. Nine providers.',
+        'Zero config hell.',
+        'Route any model. Any provider.',
+        'Build faster. Deploy anywhere.',
+      ];
+
+      const line1 = document.getElementById('hero-line-1');
+      const line2 = document.getElementById('hero-line-2');
+      let pIdx = 0, wIdx = 0, deleting = false;
+
+      function getWords(idx) {
+        const words = phrases[idx].split(' ');
+        const mid = Math.ceil(words.length / 2);
+        return [words.slice(0, mid).join(' '), words.slice(mid).join(' ')];
+      }
+
+      function tick() {
+        const [l1, l2] = getWords(pIdx);
+        if (!deleting) {
+          const w1 = l1.split(' ');
+          const w2 = l2.split(' ');
+          if (wIdx < w1.length) {
+            line1.textContent = w1.slice(0, wIdx + 1).join(' ');
+            wIdx++;
+            setTimeout(tick, 90);
+            return;
+          }
+          if (wIdx < w1.length + w2.length) {
+            line2.textContent = w2.slice(0, wIdx - w1.length + 1).join(' ');
+            wIdx++;
+            setTimeout(tick, 90);
+            return;
+          }
+          wIdx = 0;
+          deleting = true;
+          setTimeout(tick, 2200);
+          return;
+        }
+        const w1 = l1.split(' ');
+        const w2 = l2.split(' ');
+        const total = w1.length + w2.length;
+        if (wIdx < total) {
+          if (wIdx < w1.length) {
+            line1.textContent = w1.slice(0, w1.length - wIdx - 1).join(' ') || '';
+          } else {
+            line2.textContent = w2.slice(0, w2.length - (wIdx - w1.length) - 1).join(' ') || '';
+          }
+          wIdx++;
+          setTimeout(tick, 45);
+          return;
+        }
+        deleting = false;
+        wIdx = 0;
+        pIdx = (pIdx + 1) % phrases.length;
+        line1.textContent = '';
+        line2.textContent = '';
+        setTimeout(tick, 400);
+      }
+
+      setTimeout(tick, 1200);
+    })();
+  </script>
+
+
+  <!-- ═══════════════════════════════════════════════════════
+       NEURAL NETWORK CANVAS
+  ═══════════════════════════════════════════════════════ -->
+  <script>
+    (() => {
+      const canvas = document.getElementById('hero-canvas');
+      const ctx    = canvas.getContext('2d');
+      let W, H, nodes, raf, t = 0;
+
+      function resize() {
+        W = canvas.width  = canvas.offsetWidth;
+        H = canvas.height = canvas.offsetHeight;
+        buildNetwork();
+      }
+
+      function buildNetwork() {
+        nodes = [];
+        const layers   = [4, 6, 8, 6, 4];
+        const layerGap = W / (layers.length + 1);
+        layers.forEach((count, li) => {
+          const x    = layerGap * (li + 1);
+          const span = H * 0.55;
+          const top  = (H - span) / 2;
+          const gap  = count > 1 ? span / (count - 1) : 0;
+          for (let ni = 0; ni < count; ni++) {
+            const y = count === 1 ? H / 2 : top + gap * ni;
+            nodes.push({
+              x, y, layer: li, idx: ni,
+              r:     li === 0 || li === layers.length - 1 ? 5 : 3.5,
+              phase: Math.random() * Math.PI * 2,
+              speed: 0.015 + Math.random() * 0.01,
+            });
+          }
+        });
+      }
+
+      function draw() {
+        ctx.clearRect(0, 0, W, H);
+        t += 0.016;
+
+        /* edges (synapses) */
+        for (let i = 0; i < nodes.length; i++) {
+          for (let j = i + 1; j < nodes.length; j++) {
+            if (nodes[j].layer !== nodes[i].layer + 1) continue;
+            const dx   = nodes[i].x - nodes[j].x;
+            const dy   = nodes[i].y - nodes[j].y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const baseAlpha = 0.06 + 0.04 * Math.sin(t * 0.8 + nodes[i].phase);
+            ctx.beginPath();
+            ctx.moveTo(nodes[i].x, nodes[i].y);
+            ctx.lineTo(nodes[j].x, nodes[j].y);
+            ctx.strokeStyle = `rgba(255,106,91,${baseAlpha})`;
+            ctx.lineWidth   = 0.5;
+            ctx.stroke();
+
+            /* signal pulse */
+            const pulsePos  = (t * 0.25 + nodes[i].phase * 0.1) % 1;
+            const px = nodes[i].x + (nodes[j].x - nodes[i].x) * pulsePos;
+            const py = nodes[i].y + (nodes[j].y - nodes[i].y) * pulsePos;
+            const pulseAlpha = Math.sin(pulsePos * Math.PI) * 0.7;
+            ctx.beginPath();
+            ctx.arc(px, py, 1.8, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(255,106,91,${pulseAlpha})`;
+            ctx.fill();
+          }
+        }
+
+        /* nodes (neurons) */
+        for (const n of nodes) {
+          const pulse  = 0.5 + 0.5 * Math.sin(t * n.speed * 60 + n.phase);
+          const radius = n.r + pulse * 1.5;
+          const alpha  = 0.5 + pulse * 0.5;
+          ctx.beginPath(); ctx.arc(n.x, n.y, radius + 4, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(255,106,91,${alpha * 0.06})`; ctx.fill();
+          ctx.beginPath(); ctx.arc(n.x, n.y, radius, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(255,106,91,${alpha * 0.85})`; ctx.fill();
+          ctx.beginPath(); ctx.arc(n.x, n.y, radius * 0.4, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(255,220,200,${alpha})`; ctx.fill();
+        }
+
+        raf = requestAnimationFrame(draw);
+      }
+
+      window.addEventListener('resize', () => { cancelAnimationFrame(raf); resize(); });
+      resize(); draw();
+    })();
+  </script>
+
+
+  <!-- ═══════════════════════════════════════════════════════
+       THEME TOGGLE
+  ═══════════════════════════════════════════════════════ -->
+  <script>
+    (() => {
+      const btn    = document.getElementById('theme-btn');
+      const sun    = document.getElementById('icon-sun');
+      const moon   = document.getElementById('icon-moon');
+      const html   = document.documentElement;
+
+      /* restore saved preference */
+      const saved = localStorage.getItem('aura-theme');
+      if (saved) { html.setAttribute('data-theme', saved); updateIcons(saved); }
+
+      btn.addEventListener('click', () => {
+        const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        html.setAttribute('data-theme', next);
+        localStorage.setItem('aura-theme', next);
+        updateIcons(next);
+      });
+
+      function updateIcons(theme) {
+        if (theme === 'light') { sun.style.display = 'block'; moon.style.display = 'none'; }
+        else                   { sun.style.display = 'none';  moon.style.display = 'block'; }
+      }
+    })();
+  </script>
+
+</body>
+</html>
