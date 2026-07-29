@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "outputDirectory": ".",
+  "buildCommand": "echo 'static site — no build needed'",
+  "installCommand": "echo 'no dependencies'",
+  "framework": null,
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
