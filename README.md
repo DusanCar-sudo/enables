@@ -6,11 +6,14 @@ Enables is a lightweight, high-performance local proxy that lets Claude Code sig
 
 Built by **Lean Progress IQ** and **Dusan Milosavljevic**, builder of **Aura Code** and **Aura Pulse**. Enables gives developers complete freedom to select, swap, and control the models behind their coding agents.
 
-![GitHub release](https://img.shields.io/github/v/release/DusanCar-sudo/enables)
-![License](https://img.shields.io/github/license/DusanCar-sudo/enables)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.8-blue)
-![Node](https://img.shields.io/badge/Node-22-green)
-![Dependencies](https://img.shields.io/badge/dependencies-0-success)
+<p align="center">
+  <a href="https://github.com/DusanCar-sudo/enables/releases"><img src="https://img.shields.io/github/v/release/DusanCar-sudo/enables?color=238636&logo=github&logoColor=white" alt="GitHub release" /></a>
+  <a href="https://github.com/DusanCar-sudo/enables/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?logo=open-source-initiative&logoColor=white" alt="License: MIT" /></a>
+  <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-5.8-3178C6?logo=typescript&logoColor=white" alt="TypeScript 5.8" /></a>
+  <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/Node.js-%3E%3D22-339933?logo=nodedotjs&logoColor=white" alt="Node.js >= 22" /></a>
+  <a href="https://github.com/DusanCar-sudo/enables"><img src="https://img.shields.io/badge/dependencies-0%20runtime-success?logo=npm&logoColor=white" alt="Dependencies: 0 runtime" /></a>
+  <a href="https://github.com/DusanCar-sudo/enables"><img src="https://img.shields.io/badge/tests-33%20passed-brightgreen?logo=nodedotjs&logoColor=white" alt="Tests: 33 passed" /></a>
+</p>
 
 ---
 
