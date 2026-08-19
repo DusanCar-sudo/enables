@@ -48,15 +48,19 @@ describe('startProxy port selection & models endpoint', () => {
 
     try {
       const port = await startProxy(cfg);
-      const statusCode = await new Promise<number>((resolve, reject) => {
+      const resData = await new Promise<string>((resolve, reject) => {
         const req = http.request(`http://127.0.0.1:${port}/v1/messages/count_tokens?beta=true`, { method: 'POST' }, (res) => {
-          resolve(res.statusCode || 0);
+          let data = '';
+          res.on('data', chunk => data += chunk);
+          res.on('end', () => resolve(data));
         });
         req.on('error', reject);
+        req.write(JSON.stringify({ messages: [{ role: 'user', content: 'Hello world, this is a test with some tokens.' }] }));
         req.end();
       });
 
-      assert.equal(statusCode, 200);
+      const parsed = JSON.parse(resData);
+      assert.ok(parsed.input_tokens > 0, 'Expected positive input_tokens count');
     } finally {
       await stopProxy();
     }

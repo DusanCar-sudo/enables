@@ -4,8 +4,9 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { Readable } from 'node:stream';
 import { translateToOpenAI, mergeAssistantMessages } from '../translate.js';
-import { reverseNonStreaming } from '../reverse.js';
+import { reverseNonStreaming, reverseStream } from '../reverse.js';
 import { extractAnthropicUsage } from '../tokenSaver.js';
 
 // ── translateToOpenAI ──────────────────────────────────────────────────────
@@ -118,6 +119,48 @@ describe('translateToOpenAI', () => {
 
     assert.equal(result.max_tokens, 4096);
   });
+
+  it('converts base64 image blocks to OpenAI image_url format', () => {
+    const result = translateToOpenAI({
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Analyze this image' },
+          { type: 'image', source: { type: 'base64', media_type: 'image/png', data: 'iVBORw0KGgoAAAANSUhEUg==' } },
+        ],
+      }],
+    }, 'gpt-4o');
+
+    assert.equal(result.messages.length, 1);
+    const userMsg = result.messages[0];
+    assert.equal(userMsg.role, 'user');
+    assert.ok(Array.isArray(userMsg.content));
+    assert.equal(userMsg.content.length, 2);
+    assert.equal(userMsg.content[0].type, 'text');
+    assert.equal(userMsg.content[0].text, 'Analyze this image');
+    assert.equal(userMsg.content[1].type, 'image_url');
+    assert.equal(userMsg.content[1].image_url.url, 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==');
+  });
+
+  it('automatically merges consecutive assistant messages and tool calls', () => {
+    const result = translateToOpenAI({
+      messages: [{
+        role: 'assistant',
+        content: [
+          { type: 'text', text: 'Let me run that command for you.' },
+          { type: 'tool_use', id: 'tool_call_123', name: 'bash', input: { command: 'ls -la' } },
+        ],
+      }],
+    }, 'gpt-4o');
+
+    assert.equal(result.messages.length, 1);
+    const assistantMsg = result.messages[0];
+    assert.equal(assistantMsg.role, 'assistant');
+    assert.equal(assistantMsg.content, 'Let me run that command for you.');
+    assert.equal(assistantMsg.tool_calls!.length, 1);
+    assert.equal(assistantMsg.tool_calls![0].id, 'tool_call_123');
+    assert.equal(assistantMsg.tool_calls![0].function.name, 'bash');
+  });
 });
 
 // ── mergeAssistantMessages ─────────────────────────────────────────────────
@@ -130,7 +173,7 @@ describe('mergeAssistantMessages', () => {
     ]);
 
     assert.equal(result.length, 1);
-    assert.equal(result[0].content, 'Hello world');
+    assert.equal(result[0].content, 'Hello\n world');
   });
 
   it('merges adjacent assistant tool_calls', () => {
@@ -206,6 +249,25 @@ describe('reverseNonStreaming', () => {
     assert.equal(result.stop_reason, 'tool_use');
   });
 
+  it('converts reasoning_content to thinking content block', () => {
+    const result = reverseNonStreaming({
+      choices: [{
+        message: {
+          content: 'The answer is 42',
+          reasoning_content: 'Let me think step by step...',
+        },
+        finish_reason: 'stop',
+      }],
+      usage: { prompt_tokens: 20, completion_tokens: 15 },
+    }, 'deepseek-reasoner') as any;
+
+    assert.equal(result.content.length, 2);
+    assert.equal(result.content[0].type, 'thinking');
+    assert.equal(result.content[0].thinking, 'Let me think step by step...');
+    assert.equal(result.content[1].type, 'text');
+    assert.equal(result.content[1].text, 'The answer is 42');
+  });
+
   it('maps length finish_reason to max_tokens', () => {
     const result = reverseNonStreaming({
       choices: [{ message: { content: 'Truncated' }, finish_reason: 'length' }],
@@ -253,5 +315,75 @@ describe('extractAnthropicUsage', () => {
     const usage = extractAnthropicUsage(sse);
     assert.equal(usage.inputTokens, 120);
     assert.equal(usage.outputTokens, 45);
+  });
+});
+
+// ── reverseStream ──────────────────────────────────────────────────────────
+
+describe('reverseStream', () => {
+  it('streams reasoning content as thinking blocks', async () => {
+    const chunks = [
+      'data: {"choices":[{"delta":{"role":"assistant","reasoning_content":"Thinking deeply..."}}]}\n\n',
+      'data: {"choices":[{"delta":{"content":"Here is the answer."}}]}\n\n',
+      'data: {"choices":[{"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":8}}\n\n',
+      'data: [DONE]\n\n',
+    ];
+
+    const stream = Readable.from(chunks.map(c => Buffer.from(c)));
+    const events: { event: string; data: any }[] = [];
+
+    const stats = await reverseStream(
+      stream,
+      (event, data) => { events.push({ event, data: JSON.parse(data) }); },
+      'deepseek-reasoner',
+    );
+
+    assert.equal(stats.inputTokens, 10);
+    assert.equal(stats.outputTokens, 8);
+
+    // Verify thinking block start, delta, and stop
+    const thinkingStart = events.find(e => e.event === 'content_block_start' && e.data.content_block?.type === 'thinking');
+    assert.ok(thinkingStart, 'Should have emitted thinking block start');
+
+    const thinkingDelta = events.find(e => e.event === 'content_block_delta' && e.data.delta?.type === 'thinking_delta');
+    assert.ok(thinkingDelta, 'Should have emitted thinking delta');
+    assert.equal(thinkingDelta.data.delta.thinking, 'Thinking deeply...');
+
+    // Verify text block start and delta
+    const textStart = events.find(e => e.event === 'content_block_start' && e.data.content_block?.type === 'text');
+    assert.ok(textStart, 'Should have emitted text block start');
+
+    const textDelta = events.find(e => e.event === 'content_block_delta' && e.data.delta?.type === 'text_delta');
+    assert.ok(textDelta, 'Should have emitted text delta');
+    assert.equal(textDelta.data.delta.text, 'Here is the answer.');
+  });
+
+  it('streams parallel tool calls with consistent block indexing', async () => {
+    const chunks = [
+      'data: {"choices":[{"delta":{"role":"assistant","tool_calls":[{"index":0,"id":"tc_0","function":{"name":"read_file","arguments":""}},{"index":1,"id":"tc_1","function":{"name":"search","arguments":""}}]}}]}\n\n',
+      'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\\"path\\": \\"index.ts\\"}"}},{"index":1,"function":{"arguments":"{\\"query\\": \\"test\\"}"}}]}}]}\n\n',
+      'data: {"choices":[{"delta":{},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":15,"completion_tokens":12}}\n\n',
+      'data: [DONE]\n\n',
+    ];
+
+    const stream = Readable.from(chunks.map(c => Buffer.from(c)));
+    const events: { event: string; data: any }[] = [];
+
+    await reverseStream(
+      stream,
+      (event, data) => { events.push({ event, data: JSON.parse(data) }); },
+      'gpt-4o',
+    );
+
+    const toolStarts = events.filter(e => e.event === 'content_block_start' && e.data.content_block?.type === 'tool_use');
+    assert.equal(toolStarts.length, 2);
+    assert.equal(toolStarts[0].data.content_block.name, 'read_file');
+    assert.equal(toolStarts[1].data.content_block.name, 'search');
+    assert.notEqual(toolStarts[0].data.index, toolStarts[1].data.index);
+
+    const toolDeltas = events.filter(e => e.event === 'content_block_delta' && e.data.delta?.type === 'input_json_delta');
+    assert.equal(toolDeltas.length, 2);
+    assert.equal(toolDeltas[0].data.index, toolStarts[0].data.index);
+    assert.equal(toolDeltas[1].data.index, toolStarts[1].data.index);
   });
 });

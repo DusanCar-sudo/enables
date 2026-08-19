@@ -110,8 +110,14 @@ export async function startProxy(cfg: EnablesConfig): Promise<number> {
       }
       // ── POST /v1/messages/count_tokens ───────────────────────────────────
       if (req.method === 'POST' && (pathname === '/v1/messages/count_tokens' || pathname === '/messages/count_tokens')) {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ input_tokens: 100 }));
+        const countChunks: Buffer[] = [];
+        req.on('data', (b: Buffer) => { countChunks.push(b); });
+        req.on('end', () => {
+          const rawBody = Buffer.concat(countChunks).toString();
+          const count = estimateTokensFromText(rawBody);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ input_tokens: count || 100 }));
+        });
         return;
       }
       // ── POST /v1/messages ────────────────────────────────────────────────
@@ -153,10 +159,17 @@ export async function startProxy(cfg: EnablesConfig): Promise<number> {
               if (body.stream) {
                 if (pr2.statusCode !== 200) { let d = ''; pr2.on('data', (b: Buffer) => d += b.toString()); pr2.on('end', () => { res.writeHead(502); res.end(d); }); return; }
                 res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' });
+                const pingInterval = setInterval(() => {
+                  if (!res.writableEnded) {
+                    try { res.write(': ping\n\n'); } catch {}
+                  }
+                }, 15000);
+                res.on('close', () => clearInterval(pingInterval));
                 pr2.pipe(res);
                 let fullOutput = '';
                 pr2.on('data', (b: Buffer) => { fullOutput += b.toString(); });
                 pr2.on('end', () => {
+                  clearInterval(pingInterval);
                   reportTokenSaver(estimatedInputTokens, extractAnthropicUsage(fullOutput));
                 });
               } else {
@@ -186,10 +199,19 @@ export async function startProxy(cfg: EnablesConfig): Promise<number> {
             if (body.stream) {
               if (pr2.statusCode !== 200) { let d = ''; pr2.on('data', (b: Buffer) => d += b.toString()); pr2.on('end', () => { res.writeHead(502); res.end(d); }); return; }
               res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' });
+              const pingInterval = setInterval(() => {
+                if (!res.writableEnded) {
+                  try { res.write(': ping\n\n'); } catch {}
+                }
+              }, 15000);
+              res.on('close', () => clearInterval(pingInterval));
               reverseStream(pr2, (ev, d) => res.write('event: ' + ev + '\ndata: ' + d + '\n\n'), tm)
                 .then(stats => reportTokenSaver(estimatedInputTokens, stats))
                 .catch(() => {})
-                .finally(() => { try { res.end(); } catch {} });
+                .finally(() => {
+                  clearInterval(pingInterval);
+                  try { res.end(); } catch {}
+                });
             } else {
               let d = ''; pr2.on('data', (b: Buffer) => d += b.toString()); pr2.on('end', () => {
                 try {

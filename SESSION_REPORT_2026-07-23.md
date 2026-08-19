@@ -3,6 +3,13 @@
 **Date:** 2026-07-23
 **Project:** `/mnt/bigdata/aura/projects/enables`
 **File:** `index.html` (1003 lines)
+Session usage:
+    Turns:        58
+    Tool calls:   53
+    Input tokens: 2,687,516
+    Output tokens:101,751
+    Total tokens: 2,789,267
+    Est. cost:    0.0000
 
 ---
 

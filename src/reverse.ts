@@ -34,11 +34,15 @@ export async function reverseStream(
   let lastCachedTokens = 0;
 
   // State machine
-  let contentIndex = 0;       // which content block are we on
+  let contentIndex = 0;       // next available content block index
   let inTextBlock = false;
-  let inToolBlock = false;
+  let inThinkingBlock = false;
+  let textBlockIndex = -1;
+  let thinkingBlockIndex = -1;
   let hasSentMessageStart = false;
-  let hasSentFirstContent = false;
+
+  // Track each tool call by its OpenAI tool call index -> Anthropic content block index
+  const toolCallBuilders = new Map<number, { id: string; name: string; blockIndex: number; stopped: boolean }>();
 
   function sendMessageStart() {
     if (hasSentMessageStart) return;
@@ -59,36 +63,34 @@ export async function reverseStream(
     writeSse('message_start', JSON.stringify(msg));
   }
 
-  function startTextBlock() {
-    if (inTextBlock) return;
-    closeBlock();
-    inTextBlock = true;
-    const block = { type: 'content_block_start', index: contentIndex, content_block: { type: 'text', text: '' } };
-    writeSse('content_block_start', JSON.stringify(block));
-  }
-
-  function startToolBlock(id: string, name: string) {
-    closeBlock();
-    inToolBlock = true;
-    const block = {
-      type: 'content_block_start',
-      index: contentIndex,
-      content_block: { type: 'tool_use', id, name, input: {} },
-    };
-    writeSse('content_block_start', JSON.stringify(block));
-  }
-
-  function closeBlock() {
-    if (inTextBlock || inToolBlock) {
-      writeSse('content_block_stop', JSON.stringify({ type: 'content_block_stop', index: contentIndex }));
-      contentIndex++;
-      inTextBlock = false;
-      inToolBlock = false;
+  function closeThinkingBlock() {
+    if (inThinkingBlock) {
+      writeSse('content_block_stop', JSON.stringify({ type: 'content_block_stop', index: thinkingBlockIndex }));
+      inThinkingBlock = false;
     }
   }
 
-  // Accumulate tool call args per index across chunks
-  const toolCallBuilders = new Map<number, { id: string; name: string }>();
+  function closeTextBlock() {
+    if (inTextBlock) {
+      writeSse('content_block_stop', JSON.stringify({ type: 'content_block_stop', index: textBlockIndex }));
+      inTextBlock = false;
+    }
+  }
+
+  function closeAllToolBlocks() {
+    for (const [_, builder] of toolCallBuilders) {
+      if (!builder.stopped) {
+        writeSse('content_block_stop', JSON.stringify({ type: 'content_block_stop', index: builder.blockIndex }));
+        builder.stopped = true;
+      }
+    }
+  }
+
+  function closeAllBlocks() {
+    closeThinkingBlock();
+    closeTextBlock();
+    closeAllToolBlocks();
+  }
 
   async function processLine(line: string) {
     if (!line.startsWith('data: ')) return;
@@ -125,13 +127,43 @@ export async function reverseStream(
       sendMessageStart();
     }
 
+    // ── Reasoning / Thinking delta (DeepSeek-R1, QwQ, etc.) ─────────────
+    const reasoningText = delta?.reasoning_content ?? delta?.reasoning;
+    if (reasoningText) {
+      if (!hasSentMessageStart) sendMessageStart();
+      closeTextBlock();
+      if (!inThinkingBlock) {
+        thinkingBlockIndex = contentIndex++;
+        inThinkingBlock = true;
+        writeSse('content_block_start', JSON.stringify({
+          type: 'content_block_start',
+          index: thinkingBlockIndex,
+          content_block: { type: 'thinking', thinking: '' },
+        }));
+      }
+      writeSse('content_block_delta', JSON.stringify({
+        type: 'content_block_delta',
+        index: thinkingBlockIndex,
+        delta: { type: 'thinking_delta', thinking: reasoningText },
+      }));
+    }
+
     // ── Text delta ────────────────────────────────────────────────────────
     if (delta?.content) {
       if (!hasSentMessageStart) sendMessageStart();
-      if (!inTextBlock) startTextBlock();
+      closeThinkingBlock();
+      if (!inTextBlock) {
+        textBlockIndex = contentIndex++;
+        inTextBlock = true;
+        writeSse('content_block_start', JSON.stringify({
+          type: 'content_block_start',
+          index: textBlockIndex,
+          content_block: { type: 'text', text: '' },
+        }));
+      }
       writeSse('content_block_delta', JSON.stringify({
         type: 'content_block_delta',
-        index: contentIndex,
+        index: textBlockIndex,
         delta: { type: 'text_delta', text: delta.content },
       }));
     }
@@ -139,20 +171,28 @@ export async function reverseStream(
     // ── Tool call deltas ─────────────────────────────────────────────────
     for (const tc of delta?.tool_calls ?? []) {
       if (!hasSentMessageStart) sendMessageStart();
+      closeThinkingBlock();
+      closeTextBlock();
 
-      const builder = toolCallBuilders.get(tc.index);
+      let builder = toolCallBuilders.get(tc.index);
       if (!builder) {
         // First chunk for this tool call
         const id = tc.id || `toolu_${Date.now()}_${tc.index}`;
         const name = tc.function?.name || '';
-        toolCallBuilders.set(tc.index, { id, name });
-        startToolBlock(id, name);
+        const blockIndex = contentIndex++;
+        builder = { id, name, blockIndex, stopped: false };
+        toolCallBuilders.set(tc.index, builder);
+        writeSse('content_block_start', JSON.stringify({
+          type: 'content_block_start',
+          index: blockIndex,
+          content_block: { type: 'tool_use', id, name, input: {} },
+        }));
       }
 
       if (tc.function?.arguments) {
         writeSse('content_block_delta', JSON.stringify({
           type: 'content_block_delta',
-          index: contentIndex,
+          index: builder.blockIndex,
           delta: { type: 'input_json_delta', partial_json: tc.function.arguments },
         }));
       }
@@ -160,7 +200,7 @@ export async function reverseStream(
 
     // ── Finish ────────────────────────────────────────────────────────────
     if (choice.finish_reason) {
-      closeBlock();
+      closeAllBlocks();
 
       // Map finish_reason
       let stopReason: string;
@@ -208,12 +248,12 @@ export async function reverseStream(
     });
     // Resume the stream if it's in paused mode (Node.js http.IncomingMessage)
     stream.resume();
-  })
+  });
 
   if (!hasSentMessageStart) {
     // Empty response guard
     sendMessageStart();
-    closeBlock();
+    closeAllBlocks();
     writeSse('message_delta', JSON.stringify({
       type: 'message_delta',
       delta: { stop_reason: 'end_turn', stop_sequence: null },
@@ -234,6 +274,12 @@ export function reverseNonStreaming(
 ): object {
   const choice = oaiBody.choices?.[0];
   const content: any[] = [];
+
+  // Reasoning content
+  const reasoning = choice?.message?.reasoning_content ?? choice?.message?.reasoning;
+  if (reasoning) {
+    content.push({ type: 'thinking', thinking: reasoning });
+  }
 
   // Text content
   if (choice?.message?.content) {

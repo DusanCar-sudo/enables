@@ -24,6 +24,7 @@ interface AnthropicMessage {
 
 type AnthropicContentBlock =
   | { type: 'text'; text: string }
+  | { type: 'thinking'; thinking: string; signature?: string }
   | { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> }
   | { type: 'tool_result'; tool_use_id: string; content: string | AnthropicContentBlock[]; is_error?: boolean }
   | { type: 'image'; source: { type: 'base64'; media_type: string; data: string } };
@@ -34,9 +35,13 @@ interface AnthropicTool {
   input_schema: Record<string, unknown>;
 }
 
+export type OpenAIContentPart =
+  | { type: 'text'; text: string }
+  | { type: 'image_url'; image_url: { url: string } };
+
 interface OpenAIMessage {
   role: 'system' | 'user' | 'assistant' | 'tool';
-  content: string | null;
+  content: string | OpenAIContentPart[] | null;
   tool_calls?: {
     id: string;
     type: 'function';
@@ -76,29 +81,52 @@ export function translateToOpenAI(
   body: AnthropicRequest,
   targetModel: string,
 ): OpenAIChatRequest {
-  const messages: OpenAIMessage[] = [];
+  const rawMessages: OpenAIMessage[] = [];
 
   // ── System ──────────────────────────────────────────────────────────────
   const systemText = extractSystemText(body.system);
   if (systemText) {
-    messages.push({ role: 'system', content: systemText });
+    rawMessages.push({ role: 'system', content: systemText });
   }
 
   // ── Messages ────────────────────────────────────────────────────────────
   for (const msg of body.messages) {
     if (typeof msg.content === 'string') {
-      messages.push({ role: msg.role, content: msg.content });
+      rawMessages.push({ role: msg.role, content: msg.content });
       continue;
     }
-    // Array of content blocks
+
+    // Process structured content blocks
+    const userParts: OpenAIContentPart[] = [];
+
     for (const block of msg.content) {
       switch (block.type) {
         case 'text':
-          messages.push({ role: msg.role, content: block.text });
+          if (msg.role === 'user') {
+            userParts.push({ type: 'text', text: block.text });
+          } else {
+            rawMessages.push({ role: msg.role, content: block.text });
+          }
+          break;
+
+        case 'image':
+          userParts.push({
+            type: 'image_url',
+            image_url: {
+              url: `data:${block.source.media_type};base64,${block.source.data}`,
+            },
+          });
+          break;
+
+        case 'thinking':
+          // Thinking block from Claude 3.7 - translate to text note if needed
+          if (block.thinking) {
+            rawMessages.push({ role: 'assistant', content: block.thinking });
+          }
           break;
 
         case 'tool_use':
-          messages.push({
+          rawMessages.push({
             role: 'assistant',
             content: null,
             tool_calls: [{
@@ -115,7 +143,7 @@ export function translateToOpenAI(
             : block.content.map(c => c.type === 'text' ? c.text : '').join('\n');
           const isGoogle = targetModel.toLowerCase().includes('gemini');
           if (isGoogle) {
-            messages.push({
+            rawMessages.push({
               role: 'user',
               content: JSON.stringify({
                 functionResponse: {
@@ -125,24 +153,27 @@ export function translateToOpenAI(
               })
             });
           } else {
-            messages.push({
+            rawMessages.push({
               role: 'tool',
               tool_call_id: block.tool_use_id,
               content,
             });
           }
           break;
+      }
+    }
 
-        case 'image':
-          // Add image as a user message (will merge with previous if needed)
-          messages.push({
-            role: msg.role,
-            content: `[Image: ${block.source.media_type} (base64, ${block.source.data.length} bytes)]`,
-          });
-          break;
+    if (userParts.length > 0) {
+      if (userParts.length === 1 && userParts[0].type === 'text') {
+        rawMessages.push({ role: 'user', content: userParts[0].text });
+      } else {
+        rawMessages.push({ role: 'user', content: userParts });
       }
     }
   }
+
+  // ── Auto-merge consecutive assistant messages & user parts ───────────────
+  const messages = mergeAssistantMessages(rawMessages);
 
   // ── Tools ────────────────────────────────────────────────────────────────
   const tools: OpenAITool[] | undefined = body.tools?.map(t => ({
@@ -185,8 +216,10 @@ export function mergeAssistantMessages(msgs: OpenAIMessage[]): OpenAIMessage[] {
   for (const m of msgs) {
     const last = out[out.length - 1];
     if (last && last.role === 'assistant' && m.role === 'assistant') {
-      // Merge content: prefer non-null
-      if (m.content) last.content = (last.content ?? '') + m.content;
+      // Merge content: prefer non-null string concatenation
+      if (typeof m.content === 'string') {
+        last.content = (typeof last.content === 'string' ? last.content : '') + (last.content ? '\n' : '') + m.content;
+      }
       // Merge tool_calls
       if (m.tool_calls) {
         last.tool_calls = [...(last.tool_calls ?? []), ...m.tool_calls];

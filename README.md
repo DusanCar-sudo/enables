@@ -113,12 +113,23 @@ You will never encounter `EADDRINUSE` or `Port in use` crashes.
 
 ---
 
-### 5. Token Saver & Session Statistics
+### 5. Token Saver & Real-Time Cache Tracking
 
 Enables includes **Token Saver**, a real-time request tracking meter that monitors:
 - Input request tokens & output tokens.
 - Provider prompt cache hits (e.g., DeepSeek / Gemini prompt caching).
-- Cumulative session token savings.
+- Cumulative session token savings directly in terminal output.
+
+---
+
+### 6. Advanced Gateway Capabilities (v0.2.0)
+
+- **Multimodal Vision Support**: Base64 images passed by Claude Code (screenshots, diagrams, UI wireframes) are automatically translated into standard OpenAI `image_url` data URLs (`data:${media_type};base64,...`) for vision-capable models (e.g. GPT-4o, Gemini 2.0/2.5).
+- **Reasoning / Thinking Delta Streaming**: Live reasoning content from models like DeepSeek-R1, QwQ, and o3-mini (`delta.reasoning_content`) is dynamically translated into Anthropic `thinking` content blocks.
+- **Parallel Tool Call Synchronization**: Dedicated state machine tracks parallel tool invocations and ensures interleaved argument chunks never desynchronize Anthropic SSE stream blocks.
+- **Automatic Message Consolidation**: Auto-merges consecutive assistant turns (text + tool_use) into single compliant messages to satisfy strict OpenAI/Mistral validation schemas.
+- **Dynamic Context Budgeting**: `/v1/messages/count_tokens` computes real token estimates from payload content so Claude Code accurately manages context compaction.
+- **SSE Keep-Alive Heartbeats**: Sends periodic `: ping\n\n` SSE comments every 15 seconds during long-running tool executions to prevent idle connection resets (`ECONNRESET`).
 
 ---
 
@@ -126,9 +137,9 @@ Enables includes **Token Saver**, a real-time request tracking meter that monito
 
 | Provider | Preset ID | Default Model | Adapter |
 |---|---|---|---|
-| **DeepSeek** | `deepseek` | `deepseek-chat` | OpenAI-compatible |
+| **DeepSeek** | `deepseek` | `deepseek-chat` / `deepseek-reasoner` | OpenAI-compatible |
 | **Google Gemini** | `google` | `gemini-2.0-flash` | OpenAI-compatible |
-| **OpenAI** | `openai` | `gpt-4o` | OpenAI-compatible |
+| **OpenAI** | `openai` | `gpt-4o` / `o3-mini` | OpenAI-compatible |
 | **OpenRouter** | `openrouter` | `deepseek-chat` | OpenAI-compatible |
 | **Groq** | `groq` | `llama-3.3-70b-versatile` | OpenAI-compatible |
 | **xAI (Grok)** | `xai` | `grok-3` | OpenAI-compatible |
@@ -172,10 +183,11 @@ Claude Code CLI
   └─► Anthropic Messages API Request (localhost:<port>)
         └─► Enables Local Gateway Proxy
               ├─► Port Scanner / Auto Free Port Resolver
-              ├─► Request Translator (Anthropic ◄► OpenAI Format)
-              └─► Upstream Provider API (DeepSeek, Gemini, OpenAI, etc.)
-                    └─► Response Stream Converter (SSE / SSE translation)
-                          └─► Anthropic-compatible SSE Response to Claude Code
+              ├─► Request Translator (Anthropic ◄► OpenAI Format + Vision data URLs)
+              ├─► Upstream Provider API (DeepSeek, Gemini, OpenAI, Ollama, etc.)
+              └─► Response Stream Converter (SSE ◄► Anthropic SSE + Thinking Blocks)
+                    ├─► SSE Keep-Alive Heartbeat (: ping)
+                    └─► Anthropic-compatible SSE Response to Claude Code
 ```
 
 ---
@@ -184,7 +196,8 @@ Claude Code CLI
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| `POST` | `/v1/messages` | Main proxy endpoint (Anthropic → provider) |
+| `POST` | `/v1/messages` | Main proxy endpoint (Anthropic → provider with streaming) |
+| `POST` | `/v1/messages/count_tokens` | Dynamic token counter for context budgeting |
 | `GET` | `/health` | Proxy status — provider, model |
 | `GET` | `/v1/models` | OpenAI/Anthropic model validation list |
 
