@@ -10,5 +10,7 @@ pnpm-debug.log*
 .DS_Store
 workspace/
 .aura/
+dreams/
 graphify-out/
 .vercel
+
