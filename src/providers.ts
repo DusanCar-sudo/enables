@@ -31,7 +31,12 @@ export const PROVIDERS: ProviderDef[] = [
     keyHint: 'sk-... (starts with sk-)',
     keyEnvVar: 'DEEPSEEK_API_KEY',
     defaultModel: 'deepseek-chat',
-    models: ['deepseek-chat', 'deepseek-reasoner'],
+    models: [
+      'deepseek-chat',
+      'deepseek-reasoner',
+      'deepseek-v4-pro',
+      'deepseek-v4-flash',
+    ],
   },
   {
     id: 'opencode-zen',

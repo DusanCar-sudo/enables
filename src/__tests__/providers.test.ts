@@ -28,4 +28,13 @@ describe('PROVIDERS catalog', () => {
     assert.ok(openrouter.models.includes('google/gemini-2.0-flash'));
     assert.ok(!openrouter.models.includes('google/gemini-2.5-flash'));
   });
+
+  it('defines deepseek provider with v4 pro and v4 flash models', () => {
+    const deepseek = PROVIDERS.find(p => p.id === 'deepseek');
+    assert.ok(deepseek, 'DeepSeek provider should exist');
+    assert.ok(deepseek.models.includes('deepseek-chat'));
+    assert.ok(deepseek.models.includes('deepseek-reasoner'));
+    assert.ok(deepseek.models.includes('deepseek-v4-pro'));
+    assert.ok(deepseek.models.includes('deepseek-v4-flash'));
+  });
 });

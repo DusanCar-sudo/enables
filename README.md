@@ -105,7 +105,33 @@ Inside Claude Code, you can run `/model` or keep the default selection:
 
 ---
 
-### 4. Automatic Free Port Detection
+### 4. Resuming Previous Sessions
+
+If you exit or stop midway through work, you can resume your exact Claude Code session directly through Enables without losing context:
+
+#### Via Command-Line Flags:
+```bash
+# Resume a specific session by UUID
+enables --resume f46bd1a5-bd3d-4ac7-87ca-8365ae6f978b
+
+# Short flag
+enables -r f46bd1a5-bd3d-4ac7-87ca-8365ae6f978b
+
+# Continue the most recent session in the current directory
+enables --continue # or: enables -c
+
+# Open Claude Code's interactive session picker
+enables --resume   # or: enables -r
+```
+
+#### Via Interactive Terminal Menu:
+Simply run `enables` and select:
+* `2. ↺ Continue last session` (runs `claude -c`)
+* `3. ⧉ Resume session by ID` (prompts for session UUID or opens interactive selector)
+
+---
+
+### 5. Automatic Free Port Detection
 
 Enables includes an integrated port scanner and generator. If port `8080` is currently used by another process or proxy instance, Enables will:
 1. Scan ports starting from `8080` (e.g. `8081`, `8082`, ...).
@@ -116,7 +142,7 @@ You will never encounter `EADDRINUSE` or `Port in use` crashes.
 
 ---
 
-### 5. Token Saver & Real-Time Cache Tracking
+### 6. Token Saver & Real-Time Cache Tracking
 
 Enables includes **Token Saver**, a real-time request tracking meter that monitors:
 - Input request tokens & output tokens.
@@ -125,7 +151,7 @@ Enables includes **Token Saver**, a real-time request tracking meter that monito
 
 ---
 
-### 6. Advanced Gateway Capabilities (v0.2.0)
+### 7. Advanced Gateway Capabilities (v0.2.0)
 
 - **Multimodal Vision Support**: Base64 images passed by Claude Code (screenshots, diagrams, UI wireframes) are automatically translated into standard OpenAI `image_url` data URLs (`data:${media_type};base64,...`) for vision-capable models (e.g. GPT-4o, Gemini 2.0/2.5).
 - **Reasoning / Thinking Delta Streaming**: Live reasoning content from models like DeepSeek-R1, QwQ, and o3-mini (`delta.reasoning_content`) is dynamically translated into Anthropic `thinking` content blocks.
@@ -140,7 +166,7 @@ Enables includes **Token Saver**, a real-time request tracking meter that monito
 
 | Provider | Preset ID | Default Model | Adapter |
 |---|---|---|---|
-| **DeepSeek** | `deepseek` | `deepseek-chat` / `deepseek-reasoner` | OpenAI-compatible |
+| **DeepSeek** | `deepseek` | `deepseek-v4-pro` / `deepseek-v4-flash` / `deepseek-chat` | OpenAI-compatible |
 | **Google Gemini** | `google` | `gemini-2.0-flash` | OpenAI-compatible |
 | **OpenAI** | `openai` | `gpt-4o` / `o3-mini` | OpenAI-compatible |
 | **OpenRouter** | `openrouter` | `deepseek-chat` | OpenAI-compatible |

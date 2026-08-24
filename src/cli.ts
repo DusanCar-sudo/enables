@@ -223,25 +223,106 @@ export async function configureProvider(): Promise<any> {
   }
 }
 
+// ── CLI Argument Parsing & Passthrough ──────────────────────────────────────
+
+export interface ParsedArgs {
+  mode: 'run' | 'help' | 'version' | 'setup' | 'menu';
+  claudeArgs: string[];
+}
+
+export function parseCliArgs(rawArgs: string[]): ParsedArgs {
+  if (!rawArgs || rawArgs.length === 0) {
+    return { mode: 'menu', claudeArgs: [] };
+  }
+
+  // Help & Version checks
+  if (rawArgs.some(a => a === '-h' || a === '--help')) {
+    return { mode: 'help', claudeArgs: [] };
+  }
+  if (rawArgs.some(a => a === '-v' || a === '--version')) {
+    return { mode: 'version', claudeArgs: [] };
+  }
+  if (rawArgs.some(a => a === '--setup' || a === '--config')) {
+    return { mode: 'setup', claudeArgs: [] };
+  }
+
+  // Parse arguments and normalize resume / continue flags
+  const claudeArgs: string[] = [];
+  for (let i = 0; i < rawArgs.length; i++) {
+    const arg = rawArgs[i];
+    if (arg === '--resume' || arg === '-r') {
+      claudeArgs.push('--resume');
+      if (i + 1 < rawArgs.length && !rawArgs[i + 1].startsWith('-')) {
+        claudeArgs.push(rawArgs[++i]);
+      }
+    } else if (arg.startsWith('--resume=')) {
+      const sessionId = arg.slice('--resume='.length);
+      claudeArgs.push('--resume');
+      if (sessionId) {
+        claudeArgs.push(sessionId);
+      }
+    } else if (arg.startsWith('-r=')) {
+      const sessionId = arg.slice('-r='.length);
+      claudeArgs.push('--resume');
+      if (sessionId) {
+        claudeArgs.push(sessionId);
+      }
+    } else if (arg === '-c' || arg === '--continue') {
+      claudeArgs.push('--continue');
+    } else {
+      claudeArgs.push(arg);
+    }
+  }
+
+  return { mode: 'run', claudeArgs };
+}
+
+export function printHelp(): void {
+  printBanner();
+  console.log(`  ${B}Usage:${R}
+    enables [options] [claude arguments...]
+
+  ${B}Options:${R}
+    --resume, -r [id]    Resume a Claude Code session by ID (or open interactive picker)
+    --continue, -c       Continue the most recent Claude Code session in current directory
+    --setup, --config    Configure AI provider, API key, and model
+    -v, --version        Display Enables version
+    -h, --help           Show this help message
+
+  ${B}Examples:${R}
+    enables                                    # Interactive menu
+    enables --resume f46bd1a5-bd3d-4ac7-...    # Resume specific session by ID
+    enables -r                                 # Interactive session picker in Claude Code
+    enables -c                                 # Continue last session in current directory
+    enables --setup                            # Reconfigure provider and model
+`);
+}
+
+export function printVersion(): void {
+  console.log('enables v0.3.0');
+}
+
 // ── Launch Claude Code in terminal ──────────────────────────────────────────
 
-export function launchClaude(cfg: any) {
+export function launchClaude(cfg: any, claudeArgs: string[] = []) {
   const port = cfg.port || 8080;
   const isAnthropic = (cfg.targetBaseUrl || '').includes('anthropic.com');
   const key = isAnthropic ? cfg.targetApiKey : 'dummy';
   const envStr = 'ANTHROPIC_BASE_URL=http://localhost:' + port + ' ANTHROPIC_API_KEY=' + key;
+  const argsStr = claudeArgs.length ? ' ' + claudeArgs.join(' ') : '';
   try {
     require('child_process').execSync('which konsole 2>/dev/null', { stdio: 'ignore' });
-    require('child_process').spawn('konsole', ['--hold', '-e', 'env', envStr, 'claude'], { detached: true, stdio: 'ignore' }).unref();
+    require('child_process').spawn('konsole', ['--hold', '-e', 'bash', '-c', `env ${envStr} claude${argsStr}`], { detached: true, stdio: 'ignore' }).unref();
     console.log('\n  ' + G + 'Claude Code launched in new window.' + R + '\n');
     return;
   } catch {}
   try {
     require('child_process').execSync('which x-terminal-emulator 2>/dev/null', { stdio: 'ignore' });
-    require('child_process').spawn('x-terminal-emulator', ['-e', 'bash', '-c', 'export ' + envStr + '; claude'], { detached: true, stdio: 'ignore' }).unref();
+    require('child_process').spawn('x-terminal-emulator', ['-e', 'bash', '-c', 'export ' + envStr + '; claude' + argsStr], { detached: true, stdio: 'ignore' }).unref();
     console.log('\n  ' + G + 'Claude Code launched in new window.' + R + '\n');
     return;
   } catch {}
   console.log('\n  ' + Y + 'Open another terminal and run:' + R);
-  console.log('  ' + K + envStr + ' claude' + R + '\n');
+  console.log('  ' + K + envStr + ' claude' + argsStr + R + '\n');
 }
+
