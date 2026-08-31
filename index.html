@@ -370,6 +370,7 @@
       </div>
       <div class="hidden md:flex items-center gap-8">
         <a href="#features" class="text-sm hover:opacity-80 transition-opacity" style="color:var(--muted-light);">Features</a>
+        <a href="#never-stops" class="text-sm hover:opacity-80 transition-opacity" style="color:var(--accent);">Never Stops <span class="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded" style="border:1px solid var(--accent);">premium</span></a>
         <a href="#architecture" class="text-sm hover:opacity-80 transition-opacity" style="color:var(--muted-light);">Architecture</a>
         <a href="#cta" class="text-sm hover:opacity-80 transition-opacity" style="color:var(--muted-light);">Deploy</a>
         <a href="https://github.com/DusanCar-sudo/enables" target="_blank" class="text-sm hover:opacity-80 transition-opacity" style="color:var(--muted-light);">GitHub</a>
@@ -643,6 +644,140 @@
         </div>
 
       </div>
+    </div>
+  </section>
+
+
+  <!-- ═══════════════════════════════════════════════════════
+       PREMIUM · NEVER STOPS (Automatic Provider Failover)
+  ═══════════════════════════════════════════════════════ -->
+  <section id="never-stops" class="relative py-28 px-6 overflow-hidden" style="border-top:1px solid var(--border);">
+    <!-- soft accent glow behind the section -->
+    <div class="absolute inset-0 pointer-events-none" aria-hidden="true"
+         style="background:radial-gradient(ellipse 60% 45% at 50% 0%, rgba(217,119,87,0.10), transparent 70%);"></div>
+
+    <div class="max-w-6xl mx-auto relative">
+
+      <div class="mb-14">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-8 h-px" style="background:var(--accent);"></div>
+          <span class="text-xs font-mono uppercase tracking-widest" style="color:var(--accent);">Premium · v0.4.0</span>
+        </div>
+        <h2 class="font-display font-bold text-3xl md:text-5xl tracking-tight mb-4" style="color:var(--text);">
+          Claude Code never stops.
+        </h2>
+        <p class="text-base md:text-lg max-w-3xl leading-relaxed" style="color:var(--muted-light);">
+          A provider dies mid-session — rate limit, dead key, quota burned, 5xx, timeout. With Enables,
+          the same request is <b style="color:var(--text);">automatically retried down a failover chain of 25+ providers,
+          free tiers first, paid last</b>. Your session doesn't even blink.
+        </p>
+      </div>
+
+      <!-- the failover chain, as a living flow -->
+      <div class="feature-card p-6 md:p-8 mb-8" style="border-color:rgba(217,119,87,0.35);">
+        <div class="flex flex-wrap items-center gap-2 justify-center" aria-label="Failover chain">
+
+          <div class="px-3 py-2 rounded-md text-xs font-mono font-bold"
+               style="background:var(--accent-dim);border:1px solid var(--accent);color:var(--text);">
+            your provider
+          </div>
+
+          <span style="color:var(--muted);font-family:var(--font-mono,monospace);">→</span>
+
+          <!-- free tiers first -->
+          <div class="flex flex-wrap items-center gap-2 justify-center">
+            <span class="px-2.5 py-1.5 rounded-md text-[11px] font-mono" style="background:rgba(67,160,71,0.10);border:1px solid rgba(67,160,71,0.4);color:#7cc47f;">groq</span>
+            <span class="px-2.5 py-1.5 rounded-md text-[11px] font-mono" style="background:rgba(67,160,71,0.10);border:1px solid rgba(67,160,71,0.4);color:#7cc47f;">openrouter</span>
+            <span class="px-2.5 py-1.5 rounded-md text-[11px] font-mono" style="background:rgba(67,160,71,0.10);border:1px solid rgba(67,160,71,0.4);color:#7cc47f;">google</span>
+            <span class="px-2.5 py-1.5 rounded-md text-[11px] font-mono" style="background:rgba(67,160,71,0.10);border:1px solid rgba(67,160,71,0.4);color:#7cc47f;">nvidia</span>
+            <span class="px-2.5 py-1.5 rounded-md text-[11px] font-mono" style="background:rgba(67,160,71,0.10);border:1px solid rgba(67,160,71,0.4);color:#7cc47f;">github-models</span>
+            <span class="px-2.5 py-1.5 rounded-md text-[11px] font-mono" style="background:rgba(67,160,71,0.10);border:1px solid rgba(67,160,71,0.4);color:#7cc47f;">cerebras</span>
+            <span class="px-2.5 py-1.5 rounded-md text-[11px] font-mono" style="background:rgba(67,160,71,0.10);border:1px solid rgba(67,160,71,0.4);color:#7cc47f;">cloudflare-ai</span>
+            <span class="px-2.5 py-1.5 rounded-md text-[11px] font-mono" style="background:rgba(67,160,71,0.10);border:1px solid rgba(67,160,71,0.4);color:#7cc47f;">mistral</span>
+            <span class="px-2.5 py-1.5 rounded-md text-[11px] font-mono" style="background:rgba(67,160,71,0.10);border:1px solid rgba(67,160,71,0.4);color:#7cc47f;">llm7</span>
+          </div>
+
+          <span style="color:var(--muted);font-family:var(--font-mono,monospace);">→</span>
+
+          <!-- paid last -->
+          <div class="flex flex-wrap items-center gap-2 justify-center">
+            <span class="px-2.5 py-1.5 rounded-md text-[11px] font-mono" style="background:var(--panel);border:1px solid var(--border);color:var(--muted-light);">deepseek</span>
+            <span class="px-2.5 py-1.5 rounded-md text-[11px] font-mono" style="background:var(--panel);border:1px solid var(--border);color:var(--muted-light);">openai</span>
+            <span class="px-2.5 py-1.5 rounded-md text-[11px] font-mono" style="background:var(--panel);border:1px solid var(--border);color:var(--muted-light);">anthropic</span>
+            <span class="px-2.5 py-1.5 rounded-md text-[11px] font-mono" style="background:var(--panel);border:1px solid var(--border);color:var(--muted-light);">+15 more</span>
+          </div>
+        </div>
+
+        <div class="mt-4 flex flex-wrap justify-center gap-x-6 gap-y-1 text-[11px] font-mono" style="color:var(--muted);">
+          <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:rgba(67,160,71,0.5);margin-right:6px;"></span>free tiers first</span>
+          <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--border);margin-right:6px;"></span>paid providers last</span>
+          <span>providers without a key are skipped silently</span>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        <!-- what triggers a failover -->
+        <div class="feature-card p-6 flex flex-col">
+          <h3 class="font-display font-semibold text-base mb-4" style="color:var(--text);">Every failure mode, covered</h3>
+          <div class="flex flex-wrap gap-2 mb-5">
+            <span class="px-2.5 py-1 rounded-md text-[11px] font-mono" style="background:var(--accent-dim);border:1px solid var(--accent);color:var(--text);">401 / 403 bad key</span>
+            <span class="px-2.5 py-1 rounded-md text-[11px] font-mono" style="background:var(--accent-dim);border:1px solid var(--accent);color:var(--text);">402 quota burned</span>
+            <span class="px-2.5 py-1 rounded-md text-[11px] font-mono" style="background:var(--accent-dim);border:1px solid var(--accent);color:var(--text);">429 rate limit</span>
+            <span class="px-2.5 py-1 rounded-md text-[11px] font-mono" style="background:var(--accent-dim);border:1px solid var(--accent);color:var(--text);">5xx</span>
+            <span class="px-2.5 py-1 rounded-md text-[11px] font-mono" style="background:var(--accent-dim);border:1px solid var(--accent);color:var(--text);">network error</span>
+            <span class="px-2.5 py-1 rounded-md text-[11px] font-mono" style="background:var(--accent-dim);border:1px solid var(--accent);color:var(--text);">timeout</span>
+          </div>
+          <div class="code-block mt-auto">
+            <div class="code-header">
+              <div class="dot" style="background:#ff5f57;"></div>
+              <div class="dot" style="background:#febc2e;"></div>
+              <div class="dot" style="background:#28c840;"></div>
+              <span class="ml-2 text-xs" style="color:var(--muted);">enables.log</span>
+            </div>
+            <div class="code-body">
+              <div style="color:#f78c6c;">[failover]</div>
+              <div class="pl-4"><span style="color:#c3e88d;">groq</span> <span style="color:#f78c6c;">429 rate_limit</span></div>
+              <div class="pl-4">→ trying <span style="color:#82aaff;">openrouter</span> …</div>
+              <div class="pl-4"><span style="color:#c3e88d;">openrouter</span> <span style="color:#f78c6c;">402 insufficient_balance</span></div>
+              <div class="pl-4">→ trying <span style="color:#82aaff;">google</span> <span style="color:#7cc47f;">✓ streaming</span></div>
+              <div><span style="color:var(--muted);"># your session never noticed</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- controls -->
+        <div class="feature-card p-6 flex flex-col">
+          <h3 class="font-display font-semibold text-base mb-4" style="color:var(--text);">Zero config. Yours to steer.</h3>
+          <ul class="text-sm leading-relaxed mb-5 space-y-2" style="color:var(--muted-light);">
+            <li>· Works out of the box — any <code class="text-xs" style="background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:1px 5px;">*_API_KEY</code> in your env joins the chain.</li>
+            <li>· Override the order in <code class="text-xs" style="background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:1px 5px;">~/.enables.json</code> or per run with <code class="text-xs" style="background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:1px 5px;">--chain</code>.</li>
+            <li>· One flag to turn it off: <code class="text-xs" style="background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:1px 5px;">--no-failover</code>.</li>
+            <li>· Every hop is logged, so you always know who answered.</li>
+          </ul>
+          <div class="code-block mt-auto">
+            <div class="code-header">
+              <div class="dot" style="background:#ff5f57;"></div>
+              <div class="dot" style="background:#febc2e;"></div>
+              <div class="dot" style="background:#28c840;"></div>
+              <span class="ml-2 text-xs" style="color:var(--muted);">~/.enables.json</span>
+            </div>
+            <div class="code-body">
+              <div>{</div>
+              <div class="pl-4"><span style="color:var(--accent);">"failover"</span>: <span style="color:#c3e88d;">true</span>,</div>
+              <div class="pl-4"><span style="color:var(--accent);">"failoverChain"</span>: [</div>
+              <div class="pl-8"><span style="color:#c3e88d;">"groq"</span>, <span style="color:#c3e88d;">"google"</span>, <span style="color:#c3e88d;">"deepseek"</span></div>
+              <div class="pl-4">]</div>
+              <div>}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p class="text-xs font-mono mt-6" style="color:var(--muted);">
+        Scope note: failover covers everything up to the moment a response starts streaming — a provider that dies
+        mid-stream, after the first byte reached Claude Code, cannot be retried. We'd rather be precise than magical.
+      </p>
     </div>
   </section>
 
