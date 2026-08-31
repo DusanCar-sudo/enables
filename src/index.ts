@@ -8,6 +8,7 @@ import { spawn } from 'child_process';
 import { loadConfig, saveConfig } from './config.js';
 import type { EnablesConfig } from './config.js';
 import { startProxy } from './server.js';
+import { controlRequest, resolveProxyPort, printStatus, printProxyNotRunning } from './control.js';
 import {
   menu, ask, printBanner, printProxyStatus, configureProvider,
   providerDisplayName, parseCliArgs, printHelp, printVersion, CLR, R, K, G, B, Y,
@@ -61,6 +62,37 @@ async function main() {
     return;
   }
 
+  // ── Control-plane subcommands: talk to a running proxy, no config needed ──
+  if (parsed.mode === 'status' || parsed.mode === 'switch' || parsed.mode === 'next') {
+    try {
+      const port = resolveProxyPort();
+      const res = parsed.mode === 'status'
+        ? await controlRequest('GET', '/__enables/status', undefined, port)
+        : parsed.mode === 'switch'
+          ? await controlRequest('POST', '/__enables/switch', { provider: parsed.controlArg }, port)
+          : await controlRequest('POST', '/__enables/next', {}, port);
+      if (res.status === 0) {
+        printProxyNotRunning();
+        process.exit(1);
+      }
+      if (parsed.mode === 'status' && res.status === 200) {
+        printStatus(res.json);
+        return;
+      }
+      if (res.status === 200) {
+        console.log('\n  ' + G + '✓ Active provider: ' + B + res.json.activeProvider + R + '\n');
+        return;
+      }
+      const err = res.json?.error;
+      const msg = typeof err === 'string' ? err : JSON.stringify(err ?? ('HTTP ' + res.status));
+      console.error('\n  ' + Y + 'Error: ' + msg + R);
+      process.exit(1);
+    } catch {
+      printProxyNotRunning();
+      process.exit(1);
+    }
+  }
+
   let saved = loadConfig();
 
   if (parsed.mode === 'setup') {
@@ -72,6 +104,9 @@ async function main() {
   }
 
   if (parsed.mode === 'run') {
+    // Run-scoped failover flags
+    if (parsed.noFailover) saved.failover = false;
+    if (parsed.chain) saved.failoverChain = parsed.chain.split(',').map(s => s.trim()).filter(Boolean);
     if (!saved.targetBaseUrl || !saved.targetApiKey) {
       process.stdout.write(CLR);
       console.log('\n  ' + Y + 'No saved provider configuration found. Let\'s configure it first:' + R + '\n');

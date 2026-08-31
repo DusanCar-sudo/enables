@@ -62,4 +62,42 @@ describe('parseCliArgs', () => {
     assert.equal(res.mode, 'run');
     assert.deepEqual(res.claudeArgs, ['--verbose', '-p', 'write a function']);
   });
+
+  it('parses the status subcommand', () => {
+    const res = parseCliArgs(['status']);
+    assert.equal(res.mode, 'status');
+    assert.deepEqual(res.claudeArgs, []);
+  });
+
+  it('parses the next subcommand', () => {
+    assert.equal(parseCliArgs(['next']).mode, 'next');
+  });
+
+  it('parses switch with a provider id', () => {
+    const res = parseCliArgs(['switch', 'groq']);
+    assert.equal(res.mode, 'switch');
+    assert.equal(res.controlArg, 'groq');
+  });
+
+  it('falls back to help when switch has no provider id', () => {
+    assert.equal(parseCliArgs(['switch']).mode, 'help');
+  });
+
+  it('parses --no-failover without leaking it to claude args', () => {
+    const res = parseCliArgs(['--no-failover', '-c']);
+    assert.equal(res.mode, 'run');
+    assert.equal(res.noFailover, true);
+    assert.deepEqual(res.claudeArgs, ['--continue']);
+  });
+
+  it('parses --chain in both space and equals forms', () => {
+    const a = parseCliArgs(['--chain', 'groq,openrouter,deepseek']);
+    assert.equal(a.mode, 'run');
+    assert.equal(a.chain, 'groq,openrouter,deepseek');
+    assert.deepEqual(a.claudeArgs, []);
+
+    const b = parseCliArgs(['--chain=groq,deepseek']);
+    assert.equal(b.chain, 'groq,deepseek');
+    assert.deepEqual(b.claudeArgs, []);
+  });
 });

@@ -162,6 +162,54 @@ Enables includes **Token Saver**, a real-time request tracking meter that monito
 
 ---
 
+### 8. Automatic Provider Failover (v0.4.0)
+
+Enables now keeps your session alive when a provider dies. When the active provider fails with **401/403** (bad key), **402 / quota / insufficient balance**, **429** (rate limit), **5xx**, a network error, or a timeout, the same request is automatically retried on the next provider in the failover chain — free tiers first, paid providers last:
+
+```text
+your configured provider → groq → openrouter → google → nvidia → github-models
+  → cerebras → cloudflare-workers-ai → mistral → opencode-zen → modelscope → llm7
+  → deepseek → openai → anthropic → xai → together → fireworks → perplexity
+  → sambanova → cohere → zhipu → dashscope → moonshot → baichuan
+```
+
+- Providers with no available API key (env var unset, nothing in config) are **silently skipped**.
+- Every failover is logged: `[failover] groq 429 rate_limit → trying openrouter`.
+- The chain order can be overridden in `~/.enables.json` or per run.
+- **Limitation**: a provider that dies mid-stream (after the first byte reached Claude Code) cannot be retried — failover applies up to the point a response starts.
+
+#### Configuring keys for failover
+
+Failover reads keys from env vars (`GROQ_API_KEY`, `OPENROUTER_API_KEY`, …) or from a per-provider map in `~/.enables.json`:
+
+```json
+{
+  "provider": "groq",
+  "providers": {
+    "google": { "apiKey": "AIza...", "model": "gemini-2.5-pro" },
+    "deepseek": { "apiKey": "sk-..." }
+  },
+  "failover": true,
+  "failoverChain": ["groq", "google", "deepseek"]
+}
+```
+
+Set `"failover": false` to disable (or pass `--no-failover`), and `"failoverChain"` for an explicit order (or pass `--chain groq,google,deepseek`).
+
+#### Controlling the proxy from inside Claude Code
+
+While the proxy runs, you can inspect and steer it — including directly from Claude Code's **Bash tool**:
+
+```bash
+enables status             # active provider, chain, key sources, per-provider errors, counters
+enables switch deepseek    # make deepseek the active provider for subsequent requests
+enables next               # advance to the next provider in the chain
+```
+
+The proxy also exposes raw control endpoints on localhost: `GET /__enables/status`, `POST /__enables/switch {"provider":"<id>"}`, `POST /__enables/next`.
+
+---
+
 ## Supported Providers & Presets
 
 | Provider | Preset ID | Default Model | Adapter |
@@ -182,6 +230,12 @@ Enables includes **Token Saver**, a real-time request tracking meter that monito
 | **Perplexity** | `perplexity` | `sonar-pro` | OpenAI-compatible |
 | **Cerebras** | `cerebras` | `llama-3.3-70b` | OpenAI-compatible |
 | **NVIDIA NIM** | `nvidia` | `meta/llama-3.3-70b-instruct` | OpenAI-compatible |
+| **GitHub Models** | `github-models` | `openai/gpt-4o-mini` | OpenAI-compatible |
+| **Cloudflare Workers AI** | `cloudflare-workers-ai` | `@cf/meta/llama-3.1-8b-instruct` | OpenAI-compatible |
+| **ModelScope** | `modelscope` | `Qwen/Qwen2.5-Coder-32B-Instruct` | OpenAI-compatible |
+| **LLM7.io (free gateway)** | `llm7` | `gpt-4o-mini` | OpenAI-compatible |
+| **SambaNova** | `sambanova` | `Meta-Llama-3.3-70B-Instruct` | OpenAI-compatible |
+| **Cohere** | `cohere` | `command-r7b-12-2024` | OpenAI-compatible |
 | **Alibaba DashScope** | `dashscope` | `qwen-max` | OpenAI-compatible |
 | **Moonshot (Kimi)** | `moonshot` | `kimi-k2-0711-preview` | OpenAI-compatible |
 | **Baichuan** | `baichuan` | `Baichuan4` | OpenAI-compatible |
@@ -201,6 +255,12 @@ export OPENAI_API_KEY=sk-proj-...
 export OPENROUTER_API_KEY=sk-or-...
 export GROQ_API_KEY=gsk_...
 export XIAOMI_API_KEY=tp-...
+export GITHUB_MODELS_API_KEY=github_pat_...
+export CLOUDFLARE_API_TOKEN=...        # plus CLOUDFLARE_ACCOUNT_ID=...
+export MODELSCOPE_API_KEY=ms-...
+export LLM7_API_KEY=...                # optional; llm7 works keyless (rate-limited)
+export SAMBANOVA_API_KEY=...
+export COHERE_API_KEY=...
 ```
 
 ---
@@ -225,10 +285,13 @@ Claude Code CLI
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| `POST` | `/v1/messages` | Main proxy endpoint (Anthropic → provider with streaming) |
+| `POST` | `/v1/messages` | Main proxy endpoint (Anthropic → provider with streaming + failover) |
 | `POST` | `/v1/messages/count_tokens` | Dynamic token counter for context budgeting |
-| `GET` | `/health` | Proxy status — provider, model |
-| `GET` | `/v1/models` | OpenAI/Anthropic model validation list |
+| `GET` | `/health` | Proxy status — provider, model, active failover provider |
+| `GET` | `/v1/models` | Model validation list (unions models of all keyed failover providers) |
+| `GET` | `/__enables/status` | Failover status: active provider, chain, counters |
+| `POST` | `/__enables/switch` | `{"provider":"<id>"}` — switch the active provider |
+| `POST` | `/__enables/next` | Advance to the next provider in the chain |
 
 ---
 

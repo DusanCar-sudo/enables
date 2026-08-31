@@ -19,6 +19,9 @@ export interface ProviderDef {
   models: string[];           // Available target models for this provider
   isCustom?: boolean;          // Ask for base URL and model at setup time
   notes?: string;             // Any special notes
+  freeTier?: boolean;          // Participates in the default free-first failover chain
+  tier?: number;               // 1 = best free quality, ascending = lower preference
+  noKeyRequired?: boolean;     // Usable without any API key (local / open gateways)
 }
 
 export const PROVIDERS: ProviderDef[] = [
@@ -50,6 +53,8 @@ export const PROVIDERS: ProviderDef[] = [
     keyEnvVar: 'OPENCODE_ZEN_API_KEY',
     defaultModel: 'opencode-zen',
     models: ['opencode-zen'],
+    freeTier: true,
+    tier: 9,
     notes: 'Free tier: 100 requests/day, 8K context',
   },
   {
@@ -137,6 +142,8 @@ export const PROVIDERS: ProviderDef[] = [
     keyEnvVar: 'OPENROUTER_API_KEY',
     defaultModel: 'deepseek-chat',
     models: ['deepseek-chat', 'gpt-4o', 'claude-sonnet-4', 'qwen-qwq-32b', 'google/gemini-2.0-flash', 'google/gemini-2.5-pro'],
+    freeTier: true,
+    tier: 2,
     notes: 'Access many models through one API',
   },
   {
@@ -149,6 +156,8 @@ export const PROVIDERS: ProviderDef[] = [
     keyEnvVar: 'GROQ_API_KEY',
     defaultModel: 'llama-3.3-70b-versatile',
     models: ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'mixtral-8x7b-32768'],
+    freeTier: true,
+    tier: 1,
     notes: 'Very fast! Limited to small context models.',
   },
   {
@@ -187,6 +196,8 @@ export const PROVIDERS: ProviderDef[] = [
       'gemini-1.5-flash',
       'gemini-1.5-flash-8b',
     ],
+    freeTier: true,
+    tier: 3,
   },
   {
     id: 'ollama',
@@ -198,6 +209,7 @@ export const PROVIDERS: ProviderDef[] = [
     keyEnvVar: '',
     defaultModel: 'gemma3:12b',
     models: ['gemma3:12b', 'gemma3:4b', 'qwen2.5-coder:7b', 'llama3.2:3b', 'deepseek-r1:7b'],
+    noKeyRequired: true,
     notes: 'Local. Free. Runs on your GPU.',
   },
   {
@@ -210,6 +222,8 @@ export const PROVIDERS: ProviderDef[] = [
     keyEnvVar: 'MISTRAL_API_KEY',
     defaultModel: 'mistral-large-latest',
     models: ['mistral-large-latest', 'mistral-small-latest', 'codestral-latest'],
+    freeTier: true,
+    tier: 8,
   },
   {
     id: 'together',
@@ -263,6 +277,8 @@ export const PROVIDERS: ProviderDef[] = [
     keyEnvVar: 'CEREBRAS_API_KEY',
     defaultModel: 'llama-3.3-70b',
     models: ['llama-3.3-70b', 'llama3.1-8b'],
+    freeTier: true,
+    tier: 6,
     notes: 'Fast OpenAI-compatible inference.',
   },
   {
@@ -275,6 +291,89 @@ export const PROVIDERS: ProviderDef[] = [
     keyEnvVar: 'NVIDIA_API_KEY',
     defaultModel: 'meta/llama-3.1-70b-instruct',
     models: ['meta/llama-3.1-70b-instruct', 'mistralai/mixtral-8x7b-instruct-v0.1'],
+    freeTier: true,
+    tier: 4,
+  },
+  {
+    id: 'github-models',
+    name: 'GitHub Models',
+    adapter: 'openai',
+    baseUrl: 'https://models.github.ai/inference',
+    keyPrompt: 'Enter your GitHub Models API key (or GitHub token)',
+    keyHint: 'github_pat_... or token from github.com/settings/tokens',
+    keyEnvVar: 'GITHUB_MODELS_API_KEY',
+    defaultModel: 'openai/gpt-4o-mini',
+    models: ['openai/gpt-4o-mini', 'openai/gpt-4o', 'meta/Llama-3.3-70B-Instruct', 'mistral-ai/mistral-small-2503'],
+    freeTier: true,
+    tier: 5,
+    notes: 'Free allowance for developers with a GitHub account.',
+  },
+  {
+    id: 'cloudflare-workers-ai',
+    name: 'Cloudflare Workers AI',
+    adapter: 'openai',
+    baseUrl: 'https://api.cloudflare.com/client/v4/accounts/{account}/ai/v1',
+    keyPrompt: 'Enter your Cloudflare API token',
+    keyHint: 'from dash.cloudflare.com (needs Account ID too)',
+    keyEnvVar: 'CLOUDFLARE_API_TOKEN',
+    defaultModel: '@cf/meta/llama-3.1-8b-instruct',
+    models: ['@cf/meta/llama-3.1-8b-instruct', '@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/qwen/qwen2.5-coder-32b-instruct'],
+    freeTier: true,
+    tier: 7,
+    notes: 'Set CLOUDFLARE_ACCOUNT_ID (or providers["cloudflare-workers-ai"].baseUrl) to replace {account}.',
+  },
+  {
+    id: 'modelscope',
+    name: 'ModelScope',
+    adapter: 'openai',
+    baseUrl: 'https://api-inference.modelscope.cn/v1',
+    keyPrompt: 'Enter your ModelScope API key',
+    keyHint: 'ms-... from modelscope.cn',
+    keyEnvVar: 'MODELSCOPE_API_KEY',
+    defaultModel: 'Qwen/Qwen2.5-Coder-32B-Instruct',
+    models: ['Qwen/Qwen2.5-Coder-32B-Instruct', 'Qwen/Qwen2.5-72B-Instruct', 'deepseek-ai/DeepSeek-V3'],
+    freeTier: true,
+    tier: 10,
+    notes: 'Free inference endpoints for open models.',
+  },
+  {
+    id: 'llm7',
+    name: 'LLM7.io (free gateway)',
+    adapter: 'openai',
+    baseUrl: 'https://api.llm7.io/v1',
+    keyPrompt: 'LLM7 works without a key — optionally enter one',
+    keyHint: 'optional token from llm7.io',
+    keyEnvVar: 'LLM7_API_KEY',
+    defaultModel: 'gpt-4o-mini',
+    models: ['gpt-4o-mini', 'gpt-4o', 'deepseek-r1', 'llama-3.3-70b'],
+    freeTier: true,
+    tier: 11,
+    noKeyRequired: true,
+    notes: 'Free open gateway; rate-limited without a token.',
+  },
+  {
+    id: 'sambanova',
+    name: 'SambaNova',
+    adapter: 'openai',
+    baseUrl: 'https://api.sambanova.ai/v1',
+    keyPrompt: 'Enter your SambaNova API key',
+    keyHint: 'from cloud.sambanova.ai',
+    keyEnvVar: 'SAMBANOVA_API_KEY',
+    defaultModel: 'Meta-Llama-3.3-70B-Instruct',
+    models: ['Meta-Llama-3.3-70B-Instruct', 'Meta-Llama-3.1-405B-Instruct', 'Meta-Llama-3.1-8B-Instruct'],
+    tier: 20,
+  },
+  {
+    id: 'cohere',
+    name: 'Cohere',
+    adapter: 'openai',
+    baseUrl: 'https://api.cohere.ai/compatibility/v1',
+    keyPrompt: 'Enter your Cohere API key',
+    keyHint: 'from dashboard.cohere.com',
+    keyEnvVar: 'COHERE_API_KEY',
+    defaultModel: 'command-r7b-12-2024',
+    models: ['command-r7b-12-2024', 'command-r-plus-08-2024', 'command-a-03-2025'],
+    tier: 21,
   },
   {
     id: 'dashscope',
@@ -326,4 +425,19 @@ export const PROVIDERS: ProviderDef[] = [
 
 export function findProvider(id: string): ProviderDef | undefined {
   return PROVIDERS.find(p => p.id === id);
+}
+
+// Default failover order: free tiers first (quality-ordered), paid providers last.
+export const FREE_TIER_CHAIN: string[] = [
+  'groq', 'openrouter', 'google', 'nvidia', 'github-models', 'cerebras',
+  'cloudflare-workers-ai', 'mistral', 'opencode-zen', 'modelscope', 'llm7',
+];
+
+export const PAID_TAIL_CHAIN: string[] = [
+  'deepseek', 'openai', 'anthropic', 'xai', 'together', 'fireworks', 'perplexity',
+  'sambanova', 'cohere', 'zhipu', 'dashscope', 'moonshot', 'baichuan',
+];
+
+export function hasAccountPlaceholder(def: ProviderDef): boolean {
+  return def.baseUrl.includes('{account}');
 }

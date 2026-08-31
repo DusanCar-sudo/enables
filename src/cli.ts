@@ -134,6 +134,12 @@ export function printProxyStatus(cfg: any) {
   console.log('  ' + B + 'Provider:' + R + ' ' + providerDisplayName(cfg));
   console.log('  ' + B + 'Model:' + R + '    ' + (cfg.bigModel || 'unknown'));
   console.log('  ' + B + 'Endpoint:' + R + ' ' + (cfg.targetBaseUrl || 'unknown') + '\n');
+  const failover = cfg.failover === false ? K + 'off' + R : G + 'on' + R;
+  const chainLen = Array.isArray(cfg.failoverChain) && cfg.failoverChain.length
+    ? cfg.failoverChain.length
+    : undefined;
+  console.log('  ' + B + 'Failover:' + R + ' ' + failover + (chainLen ? '  ' + K + `chain of ${chainLen}` + R : ''));
+  console.log('  ' + K + 'Switch anytime (even mid-session, from Claude Code): enables status | enables next | enables switch <provider>' + R + '\n');
   console.log('  ' + B + 'Token Saver:' + R + ' ' + K + 'tracking request tokens, provider cache hits, and session savings' + R);
   console.log('  ' + B + 'Claude Code:' + R + '  ' + K + 'ANTHROPIC_BASE_URL=http://localhost:' + (cfg.port || 8080) + ' ANTHROPIC_API_KEY=dummy' + R + '\n');
 }
@@ -226,8 +232,11 @@ export async function configureProvider(): Promise<any> {
 // ── CLI Argument Parsing & Passthrough ──────────────────────────────────────
 
 export interface ParsedArgs {
-  mode: 'run' | 'help' | 'version' | 'setup' | 'menu';
+  mode: 'run' | 'help' | 'version' | 'setup' | 'menu' | 'status' | 'switch' | 'next';
   claudeArgs: string[];
+  controlArg?: string;   // provider id for `switch`
+  noFailover?: boolean;  // --no-failover
+  chain?: string;        // --chain a,b,c
 }
 
 export function parseCliArgs(rawArgs: string[]): ParsedArgs {
@@ -246,11 +255,34 @@ export function parseCliArgs(rawArgs: string[]): ParsedArgs {
     return { mode: 'setup', claudeArgs: [] };
   }
 
+  // Control-plane subcommands (talk to a running proxy)
+  if (rawArgs[0] === 'status') {
+    return { mode: 'status', claudeArgs: [] };
+  }
+  if (rawArgs[0] === 'next') {
+    return { mode: 'next', claudeArgs: [] };
+  }
+  if (rawArgs[0] === 'switch') {
+    if (!rawArgs[1]) {
+      console.error('Usage: enables switch <provider-id>');
+      return { mode: 'help', claudeArgs: [] };
+    }
+    return { mode: 'switch', controlArg: rawArgs[1], claudeArgs: [] };
+  }
+
   // Parse arguments and normalize resume / continue flags
   const claudeArgs: string[] = [];
+  let noFailover = false;
+  let chain: string | undefined;
   for (let i = 0; i < rawArgs.length; i++) {
     const arg = rawArgs[i];
-    if (arg === '--resume' || arg === '-r') {
+    if (arg === '--no-failover') {
+      noFailover = true;
+    } else if (arg === '--chain') {
+      chain = rawArgs[++i];
+    } else if (arg.startsWith('--chain=')) {
+      chain = arg.slice('--chain='.length);
+    } else if (arg === '--resume' || arg === '-r') {
       claudeArgs.push('--resume');
       if (i + 1 < rawArgs.length && !rawArgs[i + 1].startsWith('-')) {
         claudeArgs.push(rawArgs[++i]);
@@ -274,20 +306,29 @@ export function parseCliArgs(rawArgs: string[]): ParsedArgs {
     }
   }
 
-  return { mode: 'run', claudeArgs };
+  return { mode: 'run', claudeArgs, noFailover, chain };
 }
 
 export function printHelp(): void {
   printBanner();
   console.log(`  ${B}Usage:${R}
     enables [options] [claude arguments...]
+    enables status | next | switch <provider-id>
 
   ${B}Options:${R}
     --resume, -r [id]    Resume a Claude Code session by ID (or open interactive picker)
     --continue, -c       Continue the most recent Claude Code session in current directory
     --setup, --config    Configure AI provider, API key, and model
+    --no-failover        Disable automatic provider failover for this run
+    --chain a,b,c        Override the failover provider order for this run
     -v, --version        Display Enables version
     -h, --help           Show this help message
+
+  ${B}Control a running proxy:${R}
+    enables status            Show active provider, failover chain, and counters
+    enables switch <id>       Switch the active provider (persists for new requests)
+    enables next              Advance to the next provider in the chain
+    Tip: run these from Claude Code's Bash tool to change providers mid-session.
 
   ${B}Examples:${R}
     enables                                    # Interactive menu
@@ -295,11 +336,12 @@ export function printHelp(): void {
     enables -r                                 # Interactive session picker in Claude Code
     enables -c                                 # Continue last session in current directory
     enables --setup                            # Reconfigure provider and model
+    enables --chain groq,openrouter,deepseek   # Custom failover order for this run
 `);
 }
 
 export function printVersion(): void {
-  console.log('enables v0.3.0');
+  console.log('enables v0.4.0');
 }
 
 // ── Launch Claude Code in terminal ──────────────────────────────────────────
