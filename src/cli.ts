@@ -3,6 +3,9 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import * as readline from 'readline';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
 import { PROVIDERS } from './providers.js';
 import type { ProviderDef } from './providers.js';
 
@@ -15,6 +18,40 @@ export const K = '\x1b[90m';
 export const H = '\x1b[1;38;2;196;60;60m';
 export const CLR = '\x1b[2J\x1b[H';
 export const O = '\x1b[?25h';
+
+// ── chelper (Z.ai official CLI) detection ───────────────────────────────────
+
+const CHELPER_CONFIG_PATH = path.join(os.homedir(), '.chelper', 'config.yaml');
+
+export interface ChelperConfig {
+  lang?: string;
+  plan?: 'glm_coding_plan_global' | 'glm_coding_plan_china';
+  api_key?: string;
+}
+
+export function loadChelperConfig(): ChelperConfig | null {
+  try {
+    if (!fs.existsSync(CHELPER_CONFIG_PATH)) return null;
+    const content = fs.readFileSync(CHELPER_CONFIG_PATH, 'utf8');
+    // Simple YAML parsing for our known keys
+    const config: ChelperConfig = {};
+    for (const line of content.split('\n')) {
+      const trimmed = line.trim();
+      if (trimmed.startsWith('plan:')) config.plan = trimmed.slice(5).trim() as any;
+      else if (trimmed.startsWith('api_key:')) config.api_key = trimmed.slice(8).trim();
+      else if (trimmed.startsWith('lang:')) config.lang = trimmed.slice(5).trim();
+    }
+    return config.api_key ? config : null;
+  } catch {
+    return null;
+  }
+}
+
+export function getChelperBaseUrl(plan?: string): string {
+  return plan === 'glm_coding_plan_china'
+    ? 'https://open.bigmodel.cn/api/anthropic'
+    : 'https://api.z.ai/api/anthropic';
+}
 
 // ── Menu ────────────────────────────────────────────────────────────────────
 
@@ -169,6 +206,32 @@ export async function promptApiKey(provider: ProviderDef): Promise<string> {
 // ── Full provider configuration flow ────────────────────────────────────────
 
 export async function configureProvider(): Promise<any> {
+  // Check for existing chelper (Z.ai official CLI) config
+  const chelperConfig = loadChelperConfig();
+  if (chelperConfig) {
+    const baseUrl = getChelperBaseUrl(chelperConfig.plan);
+    console.log('\n  ' + G + '✓  Found Z.ai GLM Coding Plan config from chelper (~/.chelper/config.yaml)' + R);
+    console.log('  ' + K + 'Plan: ' + (chelperConfig.plan || 'glm_coding_plan_global') + R);
+    console.log('  ' + K + 'Endpoint: ' + baseUrl + R);
+    const useIt = await ask('Import this config for Enables? [Y/n]', 'y');
+    if (useIt.toLowerCase() !== 'n') {
+      return {
+        provider: 'z-ai-official',
+        providerName: 'Z.ai GLM Coding Plan (Official)',
+        providerGroup: 'Z.ai',
+        providerVariant: 'Official (Anthropic endpoint)',
+        adapter: 'anthropic',
+        targetBaseUrl: baseUrl,
+        targetApiKey: chelperConfig.api_key!,
+        keyEnvVar: 'ZAI_CODING_PLAN_API_KEY',
+        bigModel: 'glm-5.3-flash',
+        smallModel: 'glm-5.3-flash',
+        port: 8080,
+      };
+    }
+    console.log('');
+  }
+
   while (true) {
     printBanner();
     console.log('  ' + K + 'Make any model work with Claude Code.' + R + '\n');
@@ -348,7 +411,7 @@ export function printVersion(): void {
 
 export function launchClaude(cfg: any, claudeArgs: string[] = []) {
   const port = cfg.port || 8080;
-  const isAnthropic = (cfg.targetBaseUrl || '').includes('anthropic.com');
+  const isAnthropic = (cfg.targetBaseUrl || '').includes('/anthropic') || (cfg.adapter === 'anthropic');
   const key = isAnthropic ? cfg.targetApiKey : 'dummy';
   const envStr = 'ANTHROPIC_BASE_URL=http://localhost:' + port + ' ANTHROPIC_API_KEY=' + key;
   const argsStr = claudeArgs.length ? ' ' + claudeArgs.join(' ') : '';

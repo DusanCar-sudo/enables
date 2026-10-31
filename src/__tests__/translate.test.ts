@@ -161,6 +161,59 @@ describe('translateToOpenAI', () => {
     assert.equal(assistantMsg.tool_calls![0].id, 'tool_call_123');
     assert.equal(assistantMsg.tool_calls![0].function.name, 'bash');
   });
+
+  it('drops unnamed tool calls and their results from history', () => {
+    const result = translateToOpenAI({
+      messages: [
+        {
+          role: 'assistant',
+          content: [{ type: 'tool_use', id: 'tool_1', name: '', input: { command: 'ls' } }],
+        },
+        {
+          role: 'user',
+          content: [{ type: 'tool_result', tool_use_id: 'tool_1', content: 'Error: no such tool' }],
+        },
+        { role: 'user', content: 'continue' },
+      ],
+    }, 'mimo-v2.6-pro');
+
+    assert.ok(!result.messages.some(m => m.role === 'tool'), 'orphan tool result dropped');
+    assert.ok(!result.messages.some(m => (m.tool_calls ?? []).length > 0), 'invalid tool call dropped');
+    assert.ok(
+      result.messages.some(m => m.role === 'assistant' && String(m.content).includes('unnamed tool')),
+      'dropped call kept as text note',
+    );
+    assert.equal(result.messages[result.messages.length - 1].content, 'continue');
+  });
+
+  it('drops tool calls to tools missing from the toolset', () => {
+    const result = translateToOpenAI({
+      messages: [
+        {
+          role: 'assistant',
+          content: [
+            { type: 'tool_use', id: 'tool_1', name: 'Bash', input: { command: 'ls' } },
+            { type: 'tool_use', id: 'tool_2', name: 'get_weather', input: { city: 'Paris' } },
+          ],
+        },
+        {
+          role: 'user',
+          content: [
+            { type: 'tool_result', tool_use_id: 'tool_1', content: 'ok' },
+            { type: 'tool_result', tool_use_id: 'tool_2', content: '{"temp": 22}' },
+          ],
+        },
+      ],
+      tools: [{ name: 'get_weather', input_schema: { type: 'object' } }],
+    }, 'mimo-v2.6-pro');
+
+    const toolMsgs = result.messages.filter(m => m.role === 'tool');
+    assert.equal(toolMsgs.length, 1);
+    assert.equal(toolMsgs[0].tool_call_id, 'tool_2');
+    const calls = result.messages.flatMap(m => m.tool_calls ?? []);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].function.name, 'get_weather');
+  });
 });
 
 // ── mergeAssistantMessages ─────────────────────────────────────────────────
@@ -292,6 +345,30 @@ describe('reverseNonStreaming', () => {
     assert.equal(result.content.length, 0);
     assert.equal(result.stop_reason, 'end_turn');
   });
+
+  it('converts unnamed tool calls to a text fallback', () => {
+    const result = reverseNonStreaming({
+      choices: [{
+        message: {
+          content: null,
+          tool_calls: [
+            { id: 'tc_1', function: { name: '', arguments: '{"x":1}' } },
+            { function: { name: 'search', arguments: '{"q":"t"}' } },
+          ],
+        },
+        finish_reason: 'tool_calls',
+      }],
+    }, 'mimo-v2.6-pro') as any;
+
+    assert.equal(result.content.length, 2);
+    assert.equal(result.content[0].type, 'text');
+    assert.ok(result.content[0].text.includes('unnamed tool'));
+    assert.ok(result.content[0].text.includes('{"x":1}'));
+    assert.equal(result.content[1].type, 'tool_use');
+    assert.equal(result.content[1].name, 'search');
+    assert.ok(result.content[1].id, 'missing tool_call id is synthesized');
+    assert.equal(result.stop_reason, 'tool_use');
+  });
 });
 
 describe('extractAnthropicUsage', () => {
@@ -385,5 +462,60 @@ describe('reverseStream', () => {
     assert.equal(toolDeltas.length, 2);
     assert.equal(toolDeltas[0].data.index, toolStarts[0].data.index);
     assert.equal(toolDeltas[1].data.index, toolStarts[1].data.index);
+  });
+
+  it('recovers tool names that arrive after the first chunk', async () => {
+    const chunks = [
+      'data: {"choices":[{"delta":{"role":"assistant","tool_calls":[{"index":0,"id":"tc_0","function":{"name":"","arguments":""}}]}}]}\n\n',
+      'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"name":"read_file"}}]}}]}\n\n',
+      'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\\"path\\": \\"a.ts\\"}"}}]}}]}\n\n',
+      'data: {"choices":[{"delta":{},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":5,"completion_tokens":4}}\n\n',
+      'data: [DONE]\n\n',
+    ];
+
+    const stream = Readable.from(chunks.map(c => Buffer.from(c)));
+    const events: { event: string; data: any }[] = [];
+    await reverseStream(
+      stream,
+      (event, data) => { events.push({ event, data: JSON.parse(data) }); },
+      'mimo-v2.6-pro',
+    );
+
+    const toolStarts = events.filter(e => e.event === 'content_block_start' && e.data.content_block?.type === 'tool_use');
+    assert.equal(toolStarts.length, 1);
+    assert.equal(toolStarts[0].data.content_block.name, 'read_file');
+
+    const toolDeltas = events.filter(e => e.event === 'content_block_delta' && e.data.delta?.type === 'input_json_delta');
+    assert.equal(toolDeltas.length, 1);
+    assert.equal(toolDeltas[0].data.delta.partial_json, '{"path": "a.ts"}');
+  });
+
+  it('falls back to text for tool calls that never get a name', async () => {
+    const chunks = [
+      'data: {"choices":[{"delta":{"role":"assistant","tool_calls":[{"index":0,"id":"tc_0","function":{"name":"","arguments":"{\\"x\\": 1}"}}]}}]}\n\n',
+      'data: {"choices":[{"delta":{},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":5,"completion_tokens":4}}\n\n',
+      'data: [DONE]\n\n',
+    ];
+
+    const stream = Readable.from(chunks.map(c => Buffer.from(c)));
+    const events: { event: string; data: any }[] = [];
+    await reverseStream(
+      stream,
+      (event, data) => { events.push({ event, data: JSON.parse(data) }); },
+      'mimo-v2.6-pro',
+    );
+
+    const toolStarts = events.filter(e => e.event === 'content_block_start' && e.data.content_block?.type === 'tool_use');
+    assert.equal(toolStarts.length, 0, 'no empty-name tool_use is emitted');
+
+    const textStarts = events.filter(e => e.event === 'content_block_start' && e.data.content_block?.type === 'text');
+    assert.equal(textStarts.length, 1);
+    const textDelta = events.find(e => e.event === 'content_block_delta' && e.data.delta?.type === 'text_delta');
+    assert.ok(textDelta, 'fallback text delta emitted');
+    assert.ok(String(textDelta.data.delta.text).includes('{"x": 1}'));
+
+    const stop = events.find(e => e.event === 'message_delta');
+    assert.ok(stop, 'message_delta emitted');
+    assert.equal(stop.data.delta.stop_reason, 'end_turn');
   });
 });

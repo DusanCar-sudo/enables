@@ -6,6 +6,8 @@ import * as http from 'http';
 import { translateToOpenAI } from './translate.js';
 import { reverseStream, reverseNonStreaming } from './reverse.js';
 import type { AnthropicRequest } from './translate.js';
+import * as fs from 'fs/promises';
+import * as path from 'path';
 import {
   createTokenSaverSession,
   estimateTokensFromText,
@@ -32,10 +34,66 @@ import {
   isRetryable,
 } from './failover.js';
 import type { FailoverState, Failure, Candidate } from './failover.js';
-import { sendOnce, readBody, upstreamUrlFor } from './upstream.js';
+import { sendOnce, readBody, upstreamUrlFor, fetchUpstreamModels } from './upstream.js';
+import { findProvider } from './providers.js';
 
 const MAX_BODY_BYTES = 10 * 1024 * 1024; // 10 MB
 const UPSTREAM_TIMEOUT_MS = 300_000;      // 5 minutes
+
+// ─── File Search ──────────────────────────────────────────────────────────────
+// Simple grep-like search over a directory tree, used by the /search endpoint.
+const SEARCH_MAX_FILE_BYTES = 1024 * 1024;          // skip files bigger than 1 MB
+const SEARCH_MAX_RESULTS = 200;
+const SEARCH_IGNORE_DIRS = new Set([
+  'node_modules', '.git', 'dist', 'build', '.next', 'vendor',
+  '__pycache__', '.cache', '.turbo', 'coverage',
+]);
+
+export async function searchFiles(root: string, query: string, limit: number): Promise<
+  Array<{ file: string; line: number; text: string }>
+> {
+  if (!query) return [];
+  const results: Array<{ file: string; line: number; text: string }> = [];
+  const q = query.toLowerCase();
+  const max = Math.min(Math.max(limit || 50, 1), SEARCH_MAX_RESULTS);
+
+  async function walk(dir: string): Promise<void> {
+    if (results.length >= max) return;
+    let entries: import('fs').Dirent[];
+    try {
+      entries = await fs.readdir(dir, { withFileTypes: true });
+    } catch {
+      return; // unreadable dir — skip silently
+    }
+    for (const entry of entries) {
+      if (results.length >= max) return;
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (!SEARCH_IGNORE_DIRS.has(entry.name) && !entry.name.startsWith('.')) {
+          await walk(full);
+        }
+      } else if (entry.isFile()) {
+        try {
+          const stat = await fs.stat(full);
+          if (stat.size > SEARCH_MAX_FILE_BYTES) continue;
+          const content = await fs.readFile(full, 'utf8');
+          const lines = content.split(/\r?\n/);
+          for (let i = 0; i < lines.length && results.length < max; i++) {
+            const text = lines[i];
+            if (text.toLowerCase().includes(q)) {
+              results.push({ file: path.relative(root, full), line: i + 1, text: text.trim() });
+            }
+          }
+        } catch {
+          // unreadable file — skip
+        }
+      }
+    }
+  }
+
+  await walk(root);
+  return results;
+}
 
 let activeServer: http.Server | null = null;
 let activeRuntimeFile: string | null = null;
@@ -96,6 +154,17 @@ export async function startProxy(cfg: EnablesConfig, opts: StartProxyOptions = {
         }));
         return;
       }
+      // ── GET /search ──────────────────────────────────────────────────────────────
+      if (req.method === 'GET' && pathname === '/search') {
+        const url = new URL(rawUrl, `http://localhost:${port}`);
+        const query = url.searchParams.get('q') || '';
+        const root = url.searchParams.get('root') || process.cwd();
+        const limit = parseInt(url.searchParams.get('limit') || '50', 10);
+        const results = await searchFiles(root, query, limit);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ query, root, results }));
+        return;
+      }
       // ── GET /__enables/status ────────────────────────────────────────────
       if (req.method === 'GET' && pathname === '/__enables/status') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -138,8 +207,16 @@ export async function startProxy(cfg: EnablesConfig, opts: StartProxyOptions = {
       }
       // ── GET /v1/models ───────────────────────────────────────────────────
       if (req.method === 'GET' && (pathname === '/v1/models' || pathname === '/models')) {
-        const chainModels = st.chain.flatMap(c => [c.model]);
-        const allModelIds = Array.from(new Set([
+        const active = st.chain.find(c => c.id === st.activeId) || st.chain[0];
+
+        // Static fallback: every model any chain member can serve, plus the
+        // Claude model ids Claude Code knows about. Always present so the
+        // client never loses models it already references.
+        const chainModels = st.chain.flatMap(c => {
+          const def = findProvider(c.id);
+          return def && def.models.length ? def.models : [c.model];
+        });
+        const staticIds = Array.from(new Set([
           'claude-sonnet-4-6',
           'claude-opus-4-8',
           'claude-opus-4-6',
@@ -152,24 +229,45 @@ export async function startProxy(cfg: EnablesConfig, opts: StartProxyOptions = {
           'claude-3-opus-20240229',
           'claude-3-sonnet-20240229',
           'claude-3-haiku-20240307',
+          // ── Kilo Code free models (available via OpenRouter) ──
+          'dots-studio/dots-3-note-preview:free',
+          'minimax/minimax-m2.7',
+          'minimax/minimax-m3',
+          'nex-agi/nex-n2.5-pro:free',
           ...chainModels,
           ...(cfg.bigModel ? [cfg.bigModel] : []),
         ]));
+        const staticModels = staticIds.map(m => ({
+          id: m, object: 'model', type: 'model',
+          display_name: m, created_at: 1700000000, owned_by: 'enables',
+        }));
+
+        // Prefer the active provider's live catalog (OpenRouter exposes 100s
+        // of models this way) but never drop the static fallback ids — merge
+        // them in so Claude Code can target any model the gateway can route.
+        const seen = new Set<string>();
+        const data: any[] = [];
+        const push = (m: any) => {
+          const id = m && (m.id || m);
+          if (!id || seen.has(id)) return;
+          seen.add(id);
+          data.push(typeof m === 'object' ? m : { id, object: 'model', type: 'model', display_name: id, created_at: 1700000000, owned_by: 'enables' });
+        };
+        if (active) {
+          const upstream = await fetchUpstreamModels(active, 8000);
+          if (upstream && Array.isArray(upstream.data) && upstream.data.length) {
+            for (const m of upstream.data) push(m);
+          }
+        }
+        for (const m of staticModels) push(m);
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
           object: 'list',
-          data: allModelIds.map(m => ({
-            id: m,
-            object: 'model',
-            type: 'model',
-            display_name: m,
-            created_at: 1700000000,
-            owned_by: 'enables',
-          })),
+          data,
           has_more: false,
-          first_id: allModelIds[0],
-          last_id: allModelIds[allModelIds.length - 1],
+          first_id: data[0]?.id || null,
+          last_id: data[data.length - 1]?.id || null,
         }));
         return;
       }

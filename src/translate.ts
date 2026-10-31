@@ -83,6 +83,28 @@ export function translateToOpenAI(
 ): OpenAIChatRequest {
   const rawMessages: OpenAIMessage[] = [];
 
+  // ── History sanitation ───────────────────────────────────────────────────
+  // A tool_use with a missing or unknown tool name poisons the upstream
+  // request (MiMo answers 400 "Param Incorrect" on every retry).  Drop such
+  // tool calls from history — keeping their arguments as a text note — and
+  // drop the tool_result that answers them.
+  const knownToolNames = body.tools && body.tools.length > 0
+    ? new Set(body.tools.map(t => t.name))
+    : null;
+  const droppedToolIds = new Set<string>();
+  const keptToolIds = new Set<string>();
+  for (const msg of body.messages) {
+    if (typeof msg.content === 'string') continue;
+    for (const block of msg.content) {
+      if (block.type !== 'tool_use') continue;
+      if (!block.name || (knownToolNames !== null && !knownToolNames.has(block.name))) {
+        droppedToolIds.add(block.id);
+      } else {
+        keptToolIds.add(block.id);
+      }
+    }
+  }
+
   // ── System ──────────────────────────────────────────────────────────────
   const systemText = extractSystemText(body.system);
   if (systemText) {
@@ -126,6 +148,13 @@ export function translateToOpenAI(
           break;
 
         case 'tool_use':
+          if (droppedToolIds.has(block.id)) {
+            rawMessages.push({
+              role: 'assistant',
+              content: `[dropped invalid tool call ${block.name || '(unnamed tool)'} with arguments ${JSON.stringify(block.input)}]`,
+            });
+            break;
+          }
           rawMessages.push({
             role: 'assistant',
             content: null,
@@ -138,6 +167,8 @@ export function translateToOpenAI(
           break;
 
         case 'tool_result':
+          if (droppedToolIds.has(block.tool_use_id)) break;
+          if (knownToolNames !== null && !keptToolIds.has(block.tool_use_id)) break;
           const content = typeof block.content === 'string'
             ? block.content
             : block.content.map(c => c.type === 'text' ? c.text : '').join('\n');

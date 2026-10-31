@@ -15,6 +15,15 @@ export interface ReverseStats {
   cacheWriteTokens: number;
 }
 
+interface ToolCallBuilder {
+  id: string;
+  name: string;
+  blockIndex: number;
+  stopped: boolean;
+  started: boolean;
+  pendingArgs: string[];
+}
+
 /**
  * Convert an OpenAI Chat Completions byte stream (text/event-stream) into
  * Anthropic Messages API SSE events, feeding them via `writeSse`.
@@ -41,8 +50,13 @@ export async function reverseStream(
   let thinkingBlockIndex = -1;
   let hasSentMessageStart = false;
 
-  // Track each tool call by its OpenAI tool call index -> Anthropic content block index
-  const toolCallBuilders = new Map<number, { id: string; name: string; blockIndex: number; stopped: boolean }>();
+  // Track each tool call by its OpenAI tool call key -> Anthropic content block.
+  // Blocks are started lazily: the tool name can arrive after the first chunk,
+  // and a tool_use started with an empty name makes Claude Code fail with
+  // "No such tool available" and poisons every following request (400).
+  const toolCallBuilders = new Map<number | string, ToolCallBuilder>();
+  let lastToolKey: number | string | undefined;
+  let emittedToolUse = false;
 
   function sendMessageStart() {
     if (hasSentMessageStart) return;
@@ -77,8 +91,46 @@ export async function reverseStream(
     }
   }
 
+  // Emit a deferred tool-call block once its stream has been fully collected.
+  // Providers like MiMo v2.6 can stream the function name after the first
+  // chunk (or never) — starting the block early would freeze an empty name in.
+  function flushToolBuilder(builder: ToolCallBuilder) {
+    if (builder.started) return;
+    builder.started = true;
+    const args = builder.pendingArgs.join('');
+    if (builder.name) {
+      emittedToolUse = true;
+      writeSse('content_block_start', JSON.stringify({
+        type: 'content_block_start',
+        index: builder.blockIndex,
+        content_block: { type: 'tool_use', id: builder.id, name: builder.name, input: {} },
+      }));
+      if (args) {
+        writeSse('content_block_delta', JSON.stringify({
+          type: 'content_block_delta',
+          index: builder.blockIndex,
+          delta: { type: 'input_json_delta', partial_json: args },
+        }));
+      }
+    } else {
+      // No usable tool name — surface the call as text instead of an invalid
+      // tool_use that would make Claude Code answer "No such tool available".
+      writeSse('content_block_start', JSON.stringify({
+        type: 'content_block_start',
+        index: builder.blockIndex,
+        content_block: { type: 'text', text: '' },
+      }));
+      writeSse('content_block_delta', JSON.stringify({
+        type: 'content_block_delta',
+        index: builder.blockIndex,
+        delta: { type: 'text_delta', text: `[dropped invalid tool call (unnamed tool) with arguments ${args}]` },
+      }));
+    }
+  }
+
   function closeAllToolBlocks() {
-    for (const [_, builder] of toolCallBuilders) {
+    for (const builder of toolCallBuilders.values()) {
+      flushToolBuilder(builder);
       if (!builder.stopped) {
         writeSse('content_block_stop', JSON.stringify({ type: 'content_block_stop', index: builder.blockIndex }));
         builder.stopped = true;
@@ -132,6 +184,7 @@ export async function reverseStream(
     if (reasoningText) {
       if (!hasSentMessageStart) sendMessageStart();
       closeTextBlock();
+      closeAllToolBlocks();
       if (!inThinkingBlock) {
         thinkingBlockIndex = contentIndex++;
         inThinkingBlock = true;
@@ -152,6 +205,7 @@ export async function reverseStream(
     if (delta?.content) {
       if (!hasSentMessageStart) sendMessageStart();
       closeThinkingBlock();
+      closeAllToolBlocks();
       if (!inTextBlock) {
         textBlockIndex = contentIndex++;
         inTextBlock = true;
@@ -171,30 +225,28 @@ export async function reverseStream(
     // ── Tool call deltas ─────────────────────────────────────────────────
     for (const tc of delta?.tool_calls ?? []) {
       if (!hasSentMessageStart) sendMessageStart();
-      closeThinkingBlock();
-      closeTextBlock();
 
-      let builder = toolCallBuilders.get(tc.index);
+      // Key by index/id when present; some providers omit both on
+      // continuation chunks — those belong to the previous tool call.
+      const key = tc.index ?? tc.id ?? lastToolKey ?? 0;
+      lastToolKey = key;
+
+      let builder = toolCallBuilders.get(key);
       if (!builder) {
-        // First chunk for this tool call
-        const id = tc.id || `toolu_${Date.now()}_${tc.index}`;
-        const name = tc.function?.name || '';
-        const blockIndex = contentIndex++;
-        builder = { id, name, blockIndex, stopped: false };
-        toolCallBuilders.set(tc.index, builder);
-        writeSse('content_block_start', JSON.stringify({
-          type: 'content_block_start',
-          index: blockIndex,
-          content_block: { type: 'tool_use', id, name, input: {} },
-        }));
+        const id = tc.id || `toolu_${Date.now()}_${key}`;
+        builder = { id, name: '', blockIndex: contentIndex++, stopped: false, started: false, pendingArgs: [] };
+        toolCallBuilders.set(key, builder);
       }
 
+      // The name can arrive split across chunks — accumulate fragments
+      const fragment: string = tc.function?.name || '';
+      if (fragment) {
+        builder.name = builder.name
+          ? (fragment.startsWith(builder.name) ? builder.name : builder.name + fragment)
+          : fragment;
+      }
       if (tc.function?.arguments) {
-        writeSse('content_block_delta', JSON.stringify({
-          type: 'content_block_delta',
-          index: builder.blockIndex,
-          delta: { type: 'input_json_delta', partial_json: tc.function.arguments },
-        }));
+        builder.pendingArgs.push(tc.function.arguments);
       }
     }
 
@@ -205,7 +257,7 @@ export async function reverseStream(
       // Map finish_reason
       let stopReason: string;
       switch (choice.finish_reason) {
-        case 'tool_calls': stopReason = 'tool_use'; break;
+        case 'tool_calls': stopReason = emittedToolUse ? 'tool_use' : 'end_turn'; break;
         case 'length':     stopReason = 'max_tokens'; break;
         default:           stopReason = 'end_turn';
       }
@@ -286,16 +338,24 @@ export function reverseNonStreaming(
     content.push({ type: 'text', text: choice.message.content });
   }
 
-  // Tool calls
+  // Tool calls — an unnamed tool call would poison the next request
+  // (Claude Code: "No such tool available"), so surface it as text instead.
+  let emittedToolUse = false;
   for (const tc of choice?.message?.tool_calls ?? []) {
+    const args: string = tc.function?.arguments ?? '';
     let input: Record<string, unknown>;
-    try { input = JSON.parse(tc.function.arguments); } catch { input = {}; }
-    content.push({ type: 'tool_use', id: tc.id, name: tc.function.name, input });
+    try { input = JSON.parse(args); } catch { input = {}; }
+    if (tc.function?.name) {
+      emittedToolUse = true;
+      content.push({ type: 'tool_use', id: tc.id || `toolu_${Date.now()}_${content.length}`, name: tc.function.name, input });
+    } else {
+      content.push({ type: 'text', text: `[dropped invalid tool call (unnamed tool) with arguments ${args}]` });
+    }
   }
 
   const finish = choice?.finish_reason;
   const stopReason =
-    finish === 'tool_calls' ? 'tool_use' :
+    finish === 'tool_calls' ? (emittedToolUse ? 'tool_use' : 'end_turn') :
     finish === 'length' ? 'max_tokens' : 'end_turn';
 
   const usage = oaiBody.usage || {};

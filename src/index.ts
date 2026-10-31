@@ -101,6 +101,7 @@ async function main() {
     saveConfig(config);
     saved = loadConfig();
     console.log('\n  ' + G + '✓  Configured' + R + '  ' + B + providerDisplayName(config) + R + '  ' + config.bigModel + '\n');
+    return;
   }
 
   if (parsed.mode === 'run') {
