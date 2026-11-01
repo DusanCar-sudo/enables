@@ -133,6 +133,48 @@ describe('buildChain', () => {
     assert.equal(chain[0].apiKey, 'sk-test');
   });
 
+  it('honors targetBaseUrl/bigModel for the active provider instead of built-in defaults', () => {
+    // Regression: resolveCandidate() ignored cfg.targetBaseUrl and always used def.baseUrl, so a
+    // valid token-plan key was sent to dashscope-intl and rejected with 401 (enables looked dead).
+    const cfg: EnablesConfig = {
+      provider: 'dashscope',
+      adapter: 'openai',
+      targetBaseUrl: 'https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1',
+      targetApiKey: 'sk-sp-testkey',
+      bigModel: 'qwen3.7-plus',
+      smallModel: 'qwen3.6-flash',
+    };
+    const chain = buildChain(cfg);
+    const ds = chain.find((c) => c.id === 'dashscope');
+    assert.ok(ds, 'active provider must appear in the chain');
+    if (!ds) return;
+    assert.equal(ds.baseUrl, cfg.targetBaseUrl);
+    assert.ok(!/dashscope-intl/.test(ds.baseUrl), 'built-in endpoint must not override config');
+    assert.equal(ds.model, 'qwen3.7-plus');
+    assert.equal(ds.apiKey, 'sk-sp-testkey');
+
+    assert.equal(ds.adapter, 'openai');
+  });
+
+  it('keeps built-in defaults for providers other than the active one', () => {
+    // Guards against cfg.targetBaseUrl leaking down the failover chain: only the active provider
+    // may have its endpoint/model overridden by top-level config.
+    process.env.GROQ_API_KEY = 'g';
+    const cfg: EnablesConfig = {
+      provider: 'dashscope',
+      targetBaseUrl: 'https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1',
+      targetApiKey: 'sk-sp-testkey',
+      bigModel: 'qwen3.7-plus',
+      failoverChain: ['dashscope', 'groq'],
+    };
+    const chain = buildChain(cfg);
+    const groq = chain.find((c) => c.id === 'groq');
+    assert.ok(groq, 'groq should resolve when a key is present');
+    if (!groq) return;
+    assert.notEqual(groq.baseUrl, cfg.targetBaseUrl);
+    assert.notEqual(groq.model, 'qwen3.7-plus');
+  });
+
   it('dedupes by id keeping first occurrence', () => {
     process.env.GROQ_API_KEY = 'g';
     const cfg: EnablesConfig = { provider: 'groq', failoverChain: ['groq', 'openrouter'] };

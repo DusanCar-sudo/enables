@@ -139,8 +139,13 @@ function resolveCandidate(cfg: EnablesConfig, id: string): Candidate | undefined
       return makeCandidate(id, def.name, pc?.adapter || def.adapter, baseUrl, key, source, pc?.model || def.defaultModel);
     }
     if (!key && !def.noKeyRequired) return undefined; // silently skip keyless providers
-    const model = pc?.model || (cfg.provider === id && cfg.bigModel ? cfg.bigModel : def.defaultModel);
-    return makeCandidate(id, def.name, pc?.adapter || def.adapter, pc?.baseUrl || def.baseUrl, key, source, model);
+    const active = cfg.provider === id;
+    const model = pc?.model || (active && cfg.bigModel ? cfg.bigModel : def.defaultModel);
+    // For the active provider the user's config must win over built-in defaults: a custom endpoint
+    // (token-plan / regional host) silently replaced by def.baseUrl breaks auth for valid keys.
+    const baseUrl = pc?.baseUrl || (active && cfg.targetBaseUrl ? cfg.targetBaseUrl : def.baseUrl);
+    const adapter = pc?.adapter || (active && cfg.adapter ? cfg.adapter : def.adapter);
+    return makeCandidate(id, def.name, adapter, baseUrl, key, source, model);
   }
 
   // Unknown id: usable only if the user supplied a baseUrl (and a model).
