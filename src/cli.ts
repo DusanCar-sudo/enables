@@ -404,7 +404,7 @@ export function printHelp(): void {
 }
 
 export function printVersion(): void {
-  console.log('enables v0.4.0');
+  console.log('enables v0.4.1');
 }
 
 // ── Launch Claude Code in terminal ──────────────────────────────────────────

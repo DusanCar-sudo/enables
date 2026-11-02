@@ -1,6 +1,6 @@
 {
   "name": "enables",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Make Claude Code work with almost any AI provider",
   "license": "MIT",
   "main": "dist/index.js",
@@ -32,6 +32,7 @@
     "setup": "node dist/index.js --setup",
     "dev": "npx tsx src/index.ts",
     "test": "node --import tsx --test src/__tests__/*.test.ts",
+    "preflight": "node --import tsx scripts/check-launcher.ts",
     "global": "npm run build && npm link"
   },
   "dependencies": {

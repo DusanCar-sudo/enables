@@ -208,6 +208,22 @@ enables next               # advance to the next provider in the chain
 
 The proxy also exposes raw control endpoints on localhost: `GET /__enables/status`, `POST /__enables/switch {"provider":"<id>"}`, `POST /__enables/next`.
 
+### 9. Launch-Environment Preflight (v0.4.1)
+
+Enables spawns Claude Code with `ANTHROPIC_BASE_URL=http://localhost:<port>` + `ANTHROPIC_API_KEY`. If `claude` on your PATH is a wrapper script that unsets `ANTHROPIC_BASE_URL` for localhost addresses (a cleanup pattern common in router-era setups — tokenharbor, z.ai), the injection dies before Claude Code starts: the proxy sits idle, no Token Saver lines appear, and Claude answers from its stock backend. Symptom: Enables "runs" but the provider never receives a request.
+
+Check your launcher before wasting a session on it:
+
+```bash
+npm run preflight          # resolves `claude` from PATH and scans it
+npm run preflight -- --bin /path/to/claude   # explicit launcher override
+```
+
+- A **guarded** cleanup (an `ANTHROPIC_API_KEY` mention near the unset's conditional) is fine — it keeps deliberate proxy injections alive.
+- An **unguarded** strip is reported with the exact lines and fix guidance: keep a localhost base URL when an API key accompanies it; only strip keyless, unmanaged leftovers.
+
+Exit codes: `0` clean, `1` hostile launcher, `2` `claude` not found.
+
 ---
 
 ## Supported Providers & Presets

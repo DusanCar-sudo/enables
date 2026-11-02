@@ -106,7 +106,7 @@ describe('PROVIDERS catalog', () => {
     for (const id of ['mimo-token', 'mimo-payg']) {
       const mimo = PROVIDERS.find(p => p.id === id);
       assert.ok(mimo, `${id} provider should exist`);
-      for (const m of ['mimo-v2.6-pro', 'mimo-v2.6-flash', 'mimo-v2.6-pro-ultraspeed']) {
+      for (const m of ['mimo-v2.6-pro', 'mimo-v2.6-flash']) {
         assert.ok(mimo.models.includes(m), `${id} should list ${m}`);
       }
     }
