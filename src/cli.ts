@@ -8,6 +8,9 @@ import * as path from 'path';
 import * as os from 'os';
 import { PROVIDERS } from './providers.js';
 import type { ProviderDef } from './providers.js';
+import { resolveKey } from './failover.js';
+import { saveConfig } from './config.js';
+import type { EnablesConfig } from './config.js';
 
 // ── ANSI colors ─────────────────────────────────────────────────────────────
 export const R = '\x1b[0m';
@@ -290,6 +293,140 @@ export async function configureProvider(): Promise<any> {
       port: 8080,
     };
   }
+}
+
+// ── Ready Providers Selection ───────────────────────────────────────────────
+
+export interface ReadyProviderInfo {
+  provider: ProviderDef;
+  key: string;
+  keySource: string;
+  defaultModel: string;
+  isActive: boolean;
+}
+
+export function listReadyProviders(cfg: EnablesConfig): ReadyProviderInfo[] {
+  const ready: ReadyProviderInfo[] = [];
+
+  for (const p of PROVIDERS) {
+    if (p.isCustom) continue;
+    let key = '';
+    let source = '';
+
+    if (p.noKeyRequired || p.id === 'ollama') {
+      key = 'local';
+      source = 'local';
+    } else {
+      const res = resolveKey(cfg, p.id, p);
+      if (res.key) {
+        key = res.key;
+        source = res.source;
+      }
+    }
+
+    if (key) {
+      const savedModel = cfg.providers?.[p.id]?.model;
+      const model = (cfg.provider === p.id && cfg.bigModel)
+        ? cfg.bigModel
+        : (savedModel || p.defaultModel);
+
+      ready.push({
+        provider: p,
+        key,
+        keySource: source,
+        defaultModel: model,
+        isActive: cfg.provider === p.id,
+      });
+    }
+  }
+
+  // Active provider first, then by tier or name
+  ready.sort((a, b) => {
+    if (a.isActive) return -1;
+    if (b.isActive) return 1;
+    return (a.provider.tier || 10) - (b.provider.tier || 10);
+  });
+
+  return ready;
+}
+
+export async function selectReadyProvider(saved: EnablesConfig): Promise<EnablesConfig | null> {
+  const ready = listReadyProviders(saved);
+
+  if (ready.length === 0) {
+    console.log('\n  ' + Y + 'No providers with ready API keys found.' + R);
+    console.log('  ' + K + 'Configure an API key or add one to ~/.aura/keys.json' + R + '\n');
+    await ask('Press Enter to configure a provider...');
+    const configured = await configureProvider();
+    saveConfig(configured);
+    return configured;
+  }
+
+  printBanner();
+  console.log('  ' + B + 'Select AI Provider for Claude Code' + R + ' ' + K + `(${ready.length} ready with API key)` + R + '\n');
+
+  const menuItems = ready.map(r => {
+    const badge = r.isActive ? ` ${G}[active]${R}` : '';
+    return {
+      label: r.provider.name,
+      note: `${r.defaultModel}${badge}`,
+    };
+  });
+
+  const pi = await menu(menuItems, 'Choose provider:', 0, { back: true });
+  if (pi === -1) {
+    return null;
+  }
+
+  const chosen = ready[pi];
+  let selectedModel = chosen.defaultModel;
+
+  if (chosen.provider.models && chosen.provider.models.length > 1) {
+    process.stdout.write(CLR);
+    printBanner();
+    console.log('  ' + B + chosen.provider.name + R + '\n');
+
+    // Put current / default model first
+    const models = [...chosen.provider.models];
+    const defaultIdx = models.indexOf(selectedModel);
+    if (defaultIdx > 0) {
+      models.splice(defaultIdx, 1);
+      models.unshift(selectedModel);
+    }
+
+    const mi = await menu(
+      models.map(m => ({
+        label: m,
+        note: m === selectedModel ? '(default / current)' : '',
+      })),
+      `Select model for ${chosen.provider.name}:`,
+      0,
+      { back: true }
+    );
+
+    if (mi === -1) {
+      process.stdout.write(CLR);
+      return selectReadyProvider(saved);
+    }
+    selectedModel = models[mi];
+  }
+
+  const newConfig: EnablesConfig = {
+    ...saved,
+    provider: chosen.provider.id,
+    providerName: chosen.provider.name,
+    providerGroup: providerGroupName(chosen.provider),
+    providerVariant: providerVariantName(chosen.provider),
+    adapter: chosen.provider.adapter,
+    targetBaseUrl: chosen.provider.baseUrl,
+    targetApiKey: chosen.key,
+    keyEnvVar: chosen.provider.keyEnvVar,
+    bigModel: selectedModel,
+    smallModel: chosen.provider.models[0] || selectedModel,
+  };
+
+  saveConfig(newConfig);
+  return newConfig;
 }
 
 // ── CLI Argument Parsing & Passthrough ──────────────────────────────────────

@@ -10,7 +10,7 @@ import type { EnablesConfig } from './config.js';
 import { startProxy } from './server.js';
 import { controlRequest, resolveProxyPort, printStatus, printProxyNotRunning } from './control.js';
 import {
-  menu, ask, printBanner, printProxyStatus, configureProvider,
+  menu, ask, printBanner, printProxyStatus, configureProvider, selectReadyProvider,
   providerDisplayName, parseCliArgs, printHelp, printVersion, CLR, R, K, G, B, Y,
 } from './cli.js';
 
@@ -120,37 +120,64 @@ async function main() {
   }
 
   // Interactive Menu
-  process.stdout.write(CLR);
-
-  if (saved.targetBaseUrl && saved.targetApiKey) {
-    printBanner();
-    console.log('  ' + B + providerDisplayName(saved) + R + ' ' + K + (saved.bigModel || '') + R);
-    console.log('');
-
-    const i = await menu([
-      { label: '▶  Start Claude Code', note: 'new session' },
-      { label: '↺  Continue last session', note: 'claude -c' },
-      { label: '⧉  Resume session by ID', note: 'claude --resume [id]' },
-      { label: '◇  Change provider / API key', note: '' },
-      { label: '✕  Quit', note: '' },
-    ], 'What now?');
-
+  while (true) {
     process.stdout.write(CLR);
 
-    if (i === 0) {
-      await runWithProxy(saved, []);
-      return;
-    } else if (i === 1) {
-      await runWithProxy(saved, ['--continue']);
-      return;
-    } else if (i === 2) {
-      console.log('\n  ' + B + 'Resume Claude Code Session' + R);
-      console.log('  ' + K + 'Enter session UUID, or leave blank for interactive selector.' + R + '\n');
-      const sessionId = await ask('Session ID', '');
-      const resumeArgs = sessionId ? ['--resume', sessionId] : ['--resume'];
-      await runWithProxy(saved, resumeArgs);
-      return;
-    } else if (i === 3) {
+    if (saved.targetBaseUrl && saved.targetApiKey) {
+      printBanner();
+      console.log('  ' + B + providerDisplayName(saved) + R + ' ' + K + (saved.bigModel || '') + R);
+      console.log('');
+
+      const i = await menu([
+        { label: '▶  Start Claude Code', note: 'choose from ready providers' },
+        { label: '↺  Continue last session', note: 'claude -c' },
+        { label: '⧉  Resume session by ID', note: 'claude --resume [id]' },
+        { label: '◇  Change provider / API key', note: '' },
+        { label: '✕  Quit', note: '' },
+      ], 'What now?');
+
+      process.stdout.write(CLR);
+
+      if (i === 0) {
+        const chosen = await selectReadyProvider(saved);
+        if (!chosen) {
+          continue;
+        }
+        saved = chosen;
+        process.stdout.write(CLR);
+        console.log('\n  ' + G + '✓  Selected' + R + '  ' + B + providerDisplayName(saved) + R + '  ' + saved.bigModel + '\n');
+        await runWithProxy(saved, []);
+        return;
+      } else if (i === 1) {
+        await runWithProxy(saved, ['--continue']);
+        return;
+      } else if (i === 2) {
+        console.log('\n  ' + B + 'Resume Claude Code Session' + R);
+        console.log('  ' + K + 'Enter session UUID, or leave blank for interactive selector.' + R + '\n');
+        const sessionId = await ask('Session ID', '');
+        const resumeArgs = sessionId ? ['--resume', sessionId] : ['--resume'];
+        await runWithProxy(saved, resumeArgs);
+        return;
+      } else if (i === 3) {
+        const config = await configureProvider();
+        saveConfig(config);
+        saved = loadConfig();
+        process.stdout.write(CLR);
+        console.log('\n  ' + G + '✓  Configured' + R + '  ' + B + providerDisplayName(saved) + R + '  ' + saved.bigModel + '\n');
+        await runWithProxy(saved, []);
+        return;
+      } else {
+        process.exit(0);
+      }
+    } else {
+      const chosen = await selectReadyProvider(saved);
+      if (chosen) {
+        saved = chosen;
+        process.stdout.write(CLR);
+        console.log('\n  ' + G + '✓  Selected' + R + '  ' + B + providerDisplayName(saved) + R + '  ' + saved.bigModel + '\n');
+        await runWithProxy(saved, []);
+        return;
+      }
       const config = await configureProvider();
       saveConfig(config);
       saved = loadConfig();
@@ -158,32 +185,7 @@ async function main() {
       console.log('\n  ' + G + '✓  Configured' + R + '  ' + B + providerDisplayName(saved) + R + '  ' + saved.bigModel + '\n');
       await runWithProxy(saved, []);
       return;
-    } else {
-      process.exit(0);
     }
-  }
-
-  while (true) {
-    const config = await configureProvider();
-    saveConfig(config);
-    saved = loadConfig();
-    process.stdout.write(CLR);
-    console.log('\n  ' + G + '✓  Configured' + R + '  ' + B + providerDisplayName(config) + R + '  ' + config.bigModel + '\n');
-
-    const si = await menu([
-      { label: '▶  Start Claude Code now', note: '' },
-      { label: '✕  Quit', note: '' },
-    ], 'Ready?', 0, { back: true });
-
-    process.stdout.write(CLR);
-    if (si === -1) { continue; }
-
-    if (si === 0) {
-      await runWithProxy(saved, []);
-    } else {
-      console.log('\n  ' + K + 'Run "enables" or "enables --resume <id>" to start later.' + R + '\n');
-    }
-    return;
   }
 }
 

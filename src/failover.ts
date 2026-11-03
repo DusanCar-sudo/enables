@@ -4,6 +4,9 @@
 // Pure module: no http imports, fully unit-testable.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
 import { PROVIDERS, FREE_TIER_CHAIN, PAID_TAIL_CHAIN, findProvider, hasAccountPlaceholder } from './providers.js';
 import type { ProviderDef } from './providers.js';
 import type { EnablesConfig } from './config.js';
@@ -88,12 +91,73 @@ export interface Candidate {
   keySource: 'config' | 'env' | 'none';
 }
 
+let cachedAuraKeys: Record<string, string> | null = null;
+
+export function getAuraKeys(): Record<string, string> {
+  if (process.env.NODE_ENV === 'test' || process.env.npm_lifecycle_event === 'test' || process.env.ENABLES_IGNORE_AURA === '1') {
+    return {};
+  }
+  if (cachedAuraKeys) return cachedAuraKeys;
+  const out: Record<string, string> = {};
+
+  const envPath = path.join(os.homedir(), '.aura', '.env');
+  try {
+    const lines = fs.readFileSync(envPath, 'utf8').split('\n');
+    for (const l of lines) {
+      const trimmed = l.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      const idx = trimmed.indexOf('=');
+      if (idx > 0) {
+        out[trimmed.slice(0, idx).trim()] = trimmed.slice(idx + 1).trim();
+      }
+    }
+  } catch {}
+
+  const keysJsonPath = path.join(os.homedir(), '.aura', 'keys.json');
+  try {
+    const data = JSON.parse(fs.readFileSync(keysJsonPath, 'utf8'));
+    if (data && typeof data === 'object') {
+      for (const [k, v] of Object.entries(data)) {
+        if (typeof v === 'string' && v.trim()) {
+          out[k] = v.trim();
+        }
+      }
+    }
+  } catch {}
+
+  cachedAuraKeys = out;
+  return out;
+}
+
+const KEY_ALIASES: Record<string, string[]> = {
+  nvidia: ['NVIDIA_API_KEY', 'NVIDIA_NIM_API_KEY'],
+  dashscope: ['DASHSCOPE_API_KEY', 'ALIBABA_API_KEY'],
+  'opencode-zen': ['OPENCODE_API_KEY', 'ZENMUX_API_KEY'],
+  'z-ai-official': ['ZAI_CODING_PLAN_API_KEY', 'TOKENHARBOR_API_KEY'],
+  google: ['GOOGLE_API_KEY', 'GEMINI_API_KEY'],
+  moonshot: ['MOONSHOT_API_KEY', 'KIMI_API_KEY'],
+  zhipu: ['ZHIPU_API_KEY', 'GLM_API_KEY'],
+  'mimo-token': ['XIAOMI_API_KEY', 'MIMO_API_KEY'],
+};
+
 export function resolveKey(cfg: EnablesConfig, id: string, def?: ProviderDef): { key: string; source: 'config' | 'env' | 'none' } {
   const pcKey = cfg.providers?.[id]?.apiKey;
   if (pcKey) return { key: pcKey, source: 'config' };
   if (cfg.provider === id && cfg.targetApiKey) return { key: cfg.targetApiKey, source: 'config' };
-  const envKey = def?.keyEnvVar ? process.env[def.keyEnvVar] : undefined;
-  if (envKey) return { key: envKey, source: 'env' };
+
+  const envVar = def?.keyEnvVar;
+  if (envVar && process.env[envVar]) return { key: process.env[envVar]!, source: 'env' };
+
+  const aliases = KEY_ALIASES[id] || (envVar ? [envVar] : []);
+  for (const alias of aliases) {
+    if (process.env[alias]) return { key: process.env[alias]!, source: 'env' };
+  }
+
+  const auraKeys = getAuraKeys();
+  for (const alias of aliases) {
+    if (auraKeys[alias]) return { key: auraKeys[alias], source: 'env' };
+  }
+
   return { key: '', source: 'none' };
 }
 
@@ -143,7 +207,11 @@ function resolveCandidate(cfg: EnablesConfig, id: string): Candidate | undefined
     const model = pc?.model || (active && cfg.bigModel ? cfg.bigModel : def.defaultModel);
     // For the active provider the user's config must win over built-in defaults: a custom endpoint
     // (token-plan / regional host) silently replaced by def.baseUrl breaks auth for valid keys.
-    const baseUrl = pc?.baseUrl || (active && cfg.targetBaseUrl ? cfg.targetBaseUrl : def.baseUrl);
+    let baseUrl = pc?.baseUrl || (active && cfg.targetBaseUrl ? cfg.targetBaseUrl : def.baseUrl);
+    // sk-sp-* Token-Plan keys are rejected by dashscope-intl (401 invalid_api_key); they ONLY work on token-plan
+    if (id === 'dashscope' && key && key.startsWith('sk-sp-')) {
+      baseUrl = 'https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1';
+    }
     const adapter = pc?.adapter || (active && cfg.adapter ? cfg.adapter : def.adapter);
     return makeCandidate(id, def.name, adapter, baseUrl, key, source, model);
   }
