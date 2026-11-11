@@ -103,8 +103,8 @@ export const PROVIDERS: ProviderDef[] = [
       'jev-1.13-free',
     ],
     freeTier: true,
-    tier: 10,
-    notes: 'OpenCode Go gateway (opencode.ai). Free models only; same catalog as Zen.',
+    tier: 99,
+    notes: 'RETIRED 2026-11 — the /go/v1 API endpoint no longer exists (POST /chat/completions returns 405 with an empty body; GET /models serves the marketing site). OpenCode now requires a paid Go subscription via the Zen endpoint. Removed from the free-tier chain.',
   },
   {
     id: 'mimo-token',
@@ -562,7 +562,7 @@ export function findProvider(id: string): ProviderDef | undefined {
 // github-models (retired 2026-09) and cloudflare-workers-ai (unverified) removed.
 export const FREE_TIER_CHAIN: string[] = [
   'groq', 'openrouter', 'google', 'nvidia', 'cerebras',
-  'mistral', 'opencode-zen', 'opencode-go', 'modelscope', 'llm7',
+  'mistral', 'opencode-zen', 'modelscope', 'llm7',
 ];
 
 export const PAID_TAIL_CHAIN: string[] = [

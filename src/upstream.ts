@@ -25,6 +25,9 @@ export function anthropicMessagesUrl(baseUrl: string): URL {
   // Z.ai and Anthropic both use /v1/messages
   if (clean.endsWith('/v1/messages')) return new URL(clean);
   if (clean.endsWith('/messages')) return new URL(clean.replace(/\/messages$/, '/v1/messages'));
+  // A base URL that already ends in /v1 (e.g. https://api.anthropic.com/v1)
+  // must not become /v1/v1/messages.
+  if (clean.endsWith('/v1')) return new URL(clean + '/messages');
   return new URL(clean + '/v1/messages');
 }
 

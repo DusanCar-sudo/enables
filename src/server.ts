@@ -339,7 +339,11 @@ export async function startProxy(cfg: EnablesConfig, opts: StartProxyOptions = {
               const f = classifyFailure({ statusCode: r.res.statusCode, body: text });
               recordAttempt(st, cand.id, false, f);
               lastCand = cand; lastFailure = f; lastStatus = r.res.statusCode; lastBody = text;
-              if (isRetryable(f) && !hasSentHeaders) {
+              // Fail over on ANY upstream status while nothing has been sent to
+              // the client: dead gateways answer 405/404 with empty bodies and
+              // would otherwise be passed straight through (non_retryable).
+              // Single-provider chains still pass the raw error through below.
+              if (!hasSentHeaders) {
                 failoverLog(cand, f, order[order.indexOf(cand) + 1]?.id);
                 recordFailover(st);
                 continue;

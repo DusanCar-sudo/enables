@@ -241,20 +241,42 @@ describe('failover proxy integration', () => {
     }
   });
 
-  it('does not fail over on non-retryable errors (400)', async () => {
-    const a = await createStubUpstream([{ status: 400, body: { error: { message: 'invalid request' } } }]);
+  it('fails over on non-retryable errors (dead gateways answer 405/404)', async () => {
+    // OpenCode Go regression: a retired gateway answers 405 with an EMPTY body.
+    // The proxy must try the next provider instead of passing the 405 through.
+    const a = await createStubUpstream([{ status: 405, body: '' }]);
     const b = await createStubUpstream([{ status: 200, body: OPENAI_OK }]);
     const cfg = stubChainCfg(a.port, b.port, { port: 59304 });
 
     try {
       const port = await startProxy(cfg, { runtimeFile: null });
       const res = await post(port, '/v1/messages', CHAT_REQ);
-      assert.equal(res.status, 400);
-      assert.equal(b.requests.length, 0, 'second provider never contacted');
+      assert.equal(res.status, 200, 'failover served the request');
+      assert.equal(b.requests.length, 1, 'second provider contacted');
     } finally {
       await stopProxy();
       await a.close();
       await b.close();
+    }
+  });
+
+  it('passes non-retryable errors through when the chain has a single provider', async () => {
+    const a = await createStubUpstream([{ status: 400, body: { error: { message: 'invalid request' } } }]);
+    const cfg = {
+      failoverChain: ['stub-a'],
+      providers: {
+        'stub-a': { baseUrl: `http://127.0.0.1:${a.port}/v1`, model: 'model-a', apiKey: 'key-a' },
+      },
+      port: 59304,
+    } as EnablesConfig;
+
+    try {
+      const port = await startProxy(cfg, { runtimeFile: null });
+      const res = await post(port, '/v1/messages', CHAT_REQ);
+      assert.equal(res.status, 400);
+    } finally {
+      await stopProxy();
+      await a.close();
     }
   });
 
