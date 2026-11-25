@@ -19,7 +19,7 @@ import {
 import type { TokenSaverUsage } from './tokenSaver.js';
 import { R, G, B, K, Y } from './cli.js';
 import type { EnablesConfig } from './config.js';
-import { RUNTIME_FILE, saveRuntime, clearRuntime } from './config.js';
+import { RUNTIME_FILE, saveRuntime, clearRuntime, saveConfig } from './config.js';
 import { findAvailablePort } from './port.js';
 import {
   createFailoverState,
@@ -32,6 +32,7 @@ import {
   statusSnapshot,
   classifyFailure,
   isRetryable,
+  freshEnvKeyFor,
 } from './failover.js';
 import type { FailoverState, Failure, Candidate } from './failover.js';
 import { sendOnce, readBody, upstreamUrlFor, fetchUpstreamModels } from './upstream.js';
@@ -97,6 +98,40 @@ export async function searchFiles(root: string, query: string, limit: number): P
 
 let activeServer: http.Server | null = null;
 let activeRuntimeFile: string | null = null;
+
+// Never touch the developer's real config from the test suite.
+function isTestEnv(): boolean {
+  return process.env.NODE_ENV === 'test'
+    || process.env.npm_lifecycle_event === 'test'
+    || process.env.ENABLES_NO_PERSIST === '1';
+}
+
+/**
+ * Remember a key that just worked, so a stale saved key only costs one failed
+ * request. Only reached after the refreshed key returned 200, so this never
+ * overwrites a good key with a bad one.
+ */
+function persistRefreshedKey(cfg: EnablesConfig, cand: Candidate): void {
+  if (isTestEnv()) return;
+  try {
+    const patch: Partial<EnablesConfig> = {};
+    if (cfg.provider === cand.id) {
+      patch.targetApiKey = cand.apiKey;
+      // Keep the saved host in step with the one that actually works (token-plan vs intl).
+      patch.targetBaseUrl = cand.baseUrl;
+    }
+    patch.providers = {
+      ...(cfg.providers || {}),
+      [cand.id]: { ...(cfg.providers?.[cand.id] || {}), apiKey: cand.apiKey, baseUrl: cand.baseUrl },
+    };
+    saveConfig(patch);
+    if (cfg.provider === cand.id) {
+      cfg.targetApiKey = cand.apiKey;
+      cfg.targetBaseUrl = cand.baseUrl;
+    }
+    cfg.providers = patch.providers;
+  } catch { /* best effort: a failed write must not fail the request */ }
+}
 
 export function stopProxy(): Promise<void> {
   return new Promise((resolve) => {
@@ -316,7 +351,23 @@ export async function startProxy(cfg: EnablesConfig, opts: StartProxyOptions = {
               ? JSON.stringify({ ...body, model: cand.model })
               : JSON.stringify(translateToOpenAI(body, cand.model));
 
-            const r = await sendOnce(cand, url, bodyStr, timeoutMs);
+            let r = await sendOnce(cand, url, bodyStr, timeoutMs);
+
+            // ── stale saved key ────────────────────────────────────────────
+            // A key saved in ~/.enables.json outlives the key it was copied from. On an auth
+            // failure, retry once with the account key from env / ~/.aura/keys.json and, if that
+            // works, persist it so the next run is clean.
+            if (r.ok && (r.res.statusCode === 401 || r.res.statusCode === 403)) {
+              const fresh = freshEnvKeyFor(cand.id, cand.apiKey);
+              if (fresh) {
+                await readBody(r.res);
+                console.log('  ' + Y + '[key]' + R + ' ' + B + cand.id + R + ' '
+                  + 'saved key rejected → retrying with ' + Y + fresh.alias + R);
+                cand.apiKey = fresh.key;
+                r = await sendOnce(cand, url, bodyStr, timeoutMs);
+                if (r.ok && r.res.statusCode === 200) persistRefreshedKey(cfg, cand);
+              }
+            }
 
             // ── network / timeout ──────────────────────────────────────────
             if (!r.ok) {

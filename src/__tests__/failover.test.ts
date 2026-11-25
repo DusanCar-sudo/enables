@@ -8,6 +8,7 @@ import {
   classifyFailure,
   isRetryable,
   buildChain,
+  freshEnvKeyFor,
   createFailoverState,
   requestOrder,
   recordAttempt,
@@ -28,7 +29,7 @@ const KEY_ENV_VARS = [
   'DEEPSEEK_API_KEY', 'OPENAI_API_KEY', 'XAI_API_KEY', 'TOGETHER_API_KEY',
   'FIREWORKS_API_KEY', 'PERPLEXITY_API_KEY', 'SAMBANOVA_API_KEY',
   'COHERE_API_KEY', 'ZHIPU_API_KEY', 'DASHSCOPE_API_KEY', 'MOONSHOT_API_KEY',
-  'BAICHUAN_API_KEY', 'ANTHROPIC_API_KEY',
+  'BAICHUAN_API_KEY', 'ANTHROPIC_API_KEY', 'DASHSCOPE_BASE_URL', 'ALIBABA_BASE_URL',
 ];
 
 describe('classifyFailure', () => {
@@ -173,6 +174,35 @@ describe('buildChain', () => {
     if (!groq) return;
     assert.notEqual(groq.baseUrl, cfg.targetBaseUrl);
     assert.notEqual(groq.model, 'qwen3.7-plus');
+  });
+
+  it('sends a key to the host named by its <VAR>_BASE_URL companion', () => {
+    // Regression: DASHSCOPE_BASE_URL in ~/.aura/keys.json was ignored, so an sk-sp-* token-plan
+    // key got sent to the catalog default (dashscope-intl) and came back 401 — enables looked dead.
+    process.env.DASHSCOPE_API_KEY = 'sk-sp-testkey';
+    process.env.DASHSCOPE_BASE_URL = 'https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1';
+    const cfg: EnablesConfig = { provider: 'dashscope', failoverChain: ['dashscope'] };
+    const chain = buildChain(cfg);
+    assert.equal(chain.length, 1);
+    assert.equal(chain[0].baseUrl, process.env.DASHSCOPE_BASE_URL);
+  });
+
+  it('lets an explicit per-provider baseUrl beat the env host', () => {
+    process.env.DASHSCOPE_API_KEY = 'sk-plain-key';
+    process.env.DASHSCOPE_BASE_URL = 'https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1';
+    const cfg: EnablesConfig = {
+      provider: 'dashscope',
+      failoverChain: ['dashscope'],
+      providers: { dashscope: { baseUrl: 'https://example.test/v1' } },
+    };
+    const chain = buildChain(cfg);
+    assert.equal(chain[0].baseUrl, 'https://example.test/v1');
+  });
+
+  it('offers the env key when the saved one is rejected', () => {
+    process.env.DASHSCOPE_API_KEY = 'sk-sp-fresh';
+    assert.deepEqual(freshEnvKeyFor('dashscope', 'sk-sp-stale'), { key: 'sk-sp-fresh', alias: 'DASHSCOPE_API_KEY' });
+    assert.equal(freshEnvKeyFor('dashscope', 'sk-sp-fresh'), undefined, 'same key is not a refresh');
   });
 
   it('dedupes by id keeping first occurrence', () => {

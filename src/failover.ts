@@ -140,23 +140,67 @@ const KEY_ALIASES: Record<string, string[]> = {
   'mimo-token': ['XIAOMI_API_KEY', 'MIMO_API_KEY'],
 };
 
-export function resolveKey(cfg: EnablesConfig, id: string, def?: ProviderDef): { key: string; source: 'config' | 'env' | 'none' } {
+export interface ResolvedKey {
+  key: string;
+  source: 'config' | 'env' | 'none';
+  alias?: string;   // env var that supplied the key, e.g. DASHSCOPE_API_KEY
+}
+
+/** Aliases to consult for a provider, in priority order. */
+function keyAliases(id: string, def?: ProviderDef): string[] {
+  const envVar = def?.keyEnvVar;
+  return KEY_ALIASES[id] || (envVar ? [envVar] : []);
+}
+
+/**
+ * The account key for a provider straight from the environment / ~/.aura/keys.json,
+ * ignoring whatever the saved config says. Used to recover from a stale saved key.
+ */
+export function envKeyFor(id: string, def?: ProviderDef): { key: string; alias: string } | undefined {
+  for (const alias of keyAliases(id, def)) {
+    if (process.env[alias]) return { key: process.env[alias]!, alias };
+  }
+  const auraKeys = getAuraKeys();
+  for (const alias of keyAliases(id, def)) {
+    if (auraKeys[alias]) return { key: auraKeys[alias], alias };
+  }
+  return undefined;
+}
+
+/**
+ * A key from the account environment that differs from `current`.
+ * A 401 against `current` means the saved key was rotated — the env key is the fix.
+ */
+export function freshEnvKeyFor(id: string, current: string): { key: string; alias: string } | undefined {
+  const found = envKeyFor(id, findProvider(id));
+  if (found && found.key !== current) return found;
+  return undefined;
+}
+
+/**
+ * A `<VAR>_BASE_URL` companion for the env var that supplied the key, e.g.
+ * DASHSCOPE_API_KEY -> DASHSCOPE_BASE_URL. A token-plan / regional host belongs
+ * with its key: sending the key to the catalog default host fails auth (401).
+ */
+export function envBaseUrlFor(alias?: string): string | undefined {
+  if (!alias) return undefined;
+  const envName = alias.replace(/_API_KEY$/, '_BASE_URL').replace(/_KEY$/, '_BASE_URL');
+  if (!envName.endsWith('_BASE_URL')) return undefined;
+  const fromEnv = process.env[envName];
+  if (fromEnv && fromEnv.trim()) return fromEnv.trim();
+  const auraKeys = getAuraKeys();
+  const fromAura = auraKeys[envName];
+  if (fromAura && fromAura.trim()) return fromAura.trim();
+  return undefined;
+}
+
+export function resolveKey(cfg: EnablesConfig, id: string, def?: ProviderDef): ResolvedKey {
   const pcKey = cfg.providers?.[id]?.apiKey;
   if (pcKey) return { key: pcKey, source: 'config' };
   if (cfg.provider === id && cfg.targetApiKey) return { key: cfg.targetApiKey, source: 'config' };
 
-  const envVar = def?.keyEnvVar;
-  if (envVar && process.env[envVar]) return { key: process.env[envVar]!, source: 'env' };
-
-  const aliases = KEY_ALIASES[id] || (envVar ? [envVar] : []);
-  for (const alias of aliases) {
-    if (process.env[alias]) return { key: process.env[alias]!, source: 'env' };
-  }
-
-  const auraKeys = getAuraKeys();
-  for (const alias of aliases) {
-    if (auraKeys[alias]) return { key: auraKeys[alias], source: 'env' };
-  }
+  const found = envKeyFor(id, def);
+  if (found) return { key: found.key, source: 'env', alias: found.alias };
 
   return { key: '', source: 'none' };
 }
@@ -191,7 +235,7 @@ export function buildChain(cfg: EnablesConfig): Candidate[] {
 function resolveCandidate(cfg: EnablesConfig, id: string): Candidate | undefined {
   const def = findProvider(id);
   const pc = cfg.providers?.[id];
-  const { key, source } = resolveKey(cfg, id, def);
+  const { key, source, alias } = resolveKey(cfg, id, def);
 
   if (def) {
     if (def.isCustom) return undefined;               // needs interactive setup
@@ -207,10 +251,13 @@ function resolveCandidate(cfg: EnablesConfig, id: string): Candidate | undefined
     const model = pc?.model || (active && cfg.bigModel ? cfg.bigModel : def.defaultModel);
     // For the active provider the user's config must win over built-in defaults: a custom endpoint
     // (token-plan / regional host) silently replaced by def.baseUrl breaks auth for valid keys.
-    let baseUrl = pc?.baseUrl || (active && cfg.targetBaseUrl ? cfg.targetBaseUrl : def.baseUrl);
+    // A key that came with its own host wins: DASHSCOPE_BASE_URL is the token-plan /
+    // regional endpoint that sk-sp-* keys are issued for, and dashscope-intl rejects them.
+    const keyHost = source === 'env' ? envBaseUrlFor(alias) : undefined;
+    let baseUrl = pc?.baseUrl || keyHost || (active && cfg.targetBaseUrl ? cfg.targetBaseUrl : def.baseUrl);
     // sk-sp-* Token-Plan keys are rejected by dashscope-intl (401 invalid_api_key); they ONLY work on token-plan
     if (id === 'dashscope' && key && key.startsWith('sk-sp-')) {
-      baseUrl = 'https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1';
+      baseUrl = keyHost || 'https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1';
     }
     const adapter = pc?.adapter || (active && cfg.adapter ? cfg.adapter : def.adapter);
     return makeCandidate(id, def.name, adapter, baseUrl, key, source, model);
